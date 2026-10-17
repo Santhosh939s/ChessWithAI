@@ -23,10 +23,26 @@ const PEER_OPTIONS = {
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
-      { urls: 'stun:stun4.l.google.com:19302' },
-    ]
-  }
+      { urls: 'stun:stun.cloudflare.com:3478' },
+      // OpenRelay by Metered - Free public TURN servers for symmetric NAT / mobile networks
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelay',
+        credential: 'openrelay',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelay',
+        credential: 'openrelay',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelay',
+        credential: 'openrelay',
+      },
+    ],
+    iceCandidatePoolSize: 10,
+  },
 };
 
 export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
@@ -51,20 +67,20 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
   const [noOpponentFound, setNoOpponentFound] = useState(false);
 
   // Board theme state & Options menu state
-  const [theme, setTheme] = useState<BoardTheme>('cyber');
+  const [theme, setTheme] = useState<BoardTheme>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('chess_theme') as BoardTheme;
+      if (saved && ['cyber', 'sapphire', 'amethyst'].includes(saved)) {
+        return saved;
+      }
+    }
+    return 'cyber';
+  });
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
 
   // Move replay state (null = showing live board)
   const [viewIndex, setViewIndex] = useState<number | null>(null);
-
-  // Load persisted theme preference
-  useEffect(() => {
-    const saved = localStorage.getItem('chess_theme') as BoardTheme;
-    if (saved && ['cyber', 'sapphire', 'amethyst'].includes(saved)) {
-      setTheme(saved);
-    }
-  }, []);
 
   function handleSelectTheme(newTheme: BoardTheme) {
     setTheme(newTheme);
@@ -111,6 +127,7 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
     }, 1000);
 
     return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, gameOver]);
 
   function handleTimeout(timedOutColor: 'w' | 'b') {
@@ -160,9 +177,12 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
             setOpponentName(matchedData.oppName);
             setMatchStatusText(`Found player ${matchedData.oppName}! Connecting…`);
             if (matchedData.role === 'guest') {
-              const conn = peer.connect(matchedData.peerId);
+              const conn = peer.connect(matchedData.peerId, { reliable: true });
               connRef.current = conn;
               setupConnHandlers(conn, 'guest');
+            } else {
+              setMatchStatusText(`Found player ${matchedData.oppName}! Establishing connection…`);
+              // Host waits for caller's incoming connection on peer.on('connection')
             }
           }
         );
@@ -182,7 +202,7 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
           }
         }, 1000);
 
-      } catch (err) {
+      } catch {
         setError('Matchmaking failed. Try again.');
         setPhase('menu');
       }
@@ -191,6 +211,10 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
     peer.on('connection', (conn: any) => {
       if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
       if (user?.uid) leaveMatchmakingQueue(user.uid);
+      if (connRef.current && connRef.current.open && phase === 'playing') {
+        try { conn.close(); } catch {}
+        return;
+      }
       connRef.current = conn;
       setupConnHandlers(conn, 'host');
     });
@@ -244,7 +268,7 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
     peerRef.current = peer;
 
     peer.on('open', () => {
-      const conn = peer.connect(`chess-${joinCode.trim().toUpperCase()}`);
+      const conn = peer.connect(`chess-${joinCode.trim().toUpperCase()}`, { reliable: true });
       connRef.current = conn;
       setupConnHandlers(conn, 'guest');
     });
@@ -257,6 +281,8 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
 
   // ── Shared P2P Handlers ──────────────────────────────────────────────────
   function setupConnHandlers(conn: any, myRole: 'host' | 'guest') {
+    let heartbeatTimer: any = null;
+
     conn.on('open', () => {
       if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
       setPhase('playing');
@@ -265,6 +291,16 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
       setWhiteTime(INITIAL_TIME);
       setBlackTime(INITIAL_TIME);
       setViewIndex(null);
+
+      // Start 5s keep-alive heartbeat to prevent mobile CGNAT timeout
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      heartbeatTimer = setInterval(() => {
+        try {
+          if (conn && conn.open) {
+            conn.send({ type: 'PING' });
+          }
+        } catch {}
+      }, 5000);
 
       if (myRole === 'host') {
         const myColor: 'w' | 'b' = Math.random() < 0.5 ? 'w' : 'b';
@@ -278,6 +314,15 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
     });
 
     conn.on('data', (data: any) => {
+      if (data.type === 'PING') {
+        try { conn.send({ type: 'PONG' }); } catch {}
+        return;
+      }
+
+      if (data.type === 'PONG') {
+        return;
+      }
+
       if (data.type === 'GAME_START') {
         setPlayerColor(data.yourColor);
         setOpponentName(data.hostName || 'Opponent');
@@ -331,7 +376,12 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
       }
     });
 
+    conn.on('error', (err: any) => {
+      console.warn('Peer connection error:', err);
+    });
+
     conn.on('close', () => {
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
       if (!gameOver) {
         setStatus('Opponent disconnected');
         setGameOver('win');
@@ -436,8 +486,8 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
     else setViewIndex(idx);
   }
 
-  const chess = chessRef.current;
-  const isMyTurn = chess.turn() === playerColor;
+  const currentTurn = (fen.split(' ')[1] || 'w') as 'w' | 'b';
+  const isMyTurn = currentTurn === playerColor;
 
   const myTime = playerColor === 'w' ? whiteTime : blackTime;
   const oppTime = playerColor === 'w' ? blackTime : whiteTime;

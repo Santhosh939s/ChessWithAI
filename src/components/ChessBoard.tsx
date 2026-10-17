@@ -1,6 +1,6 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
-import { Chess } from 'chess.js';
+import { useState, useCallback, useMemo } from 'react';
+import { Chess, type Square } from 'chess.js';
 import ChessPiece from './ChessPiece';
 import PromotionModal from './PromotionModal';
 
@@ -17,23 +17,24 @@ interface Props {
 }
 
 export default function ChessBoard({ fen, playerColor, onMove, disabled = false, lastMove, checkSquare }: Props) {
-  const [chess] = useState(() => new Chess(fen ?? undefined));
+  const chess = useMemo(() => new Chess(fen ?? undefined), [fen]);
   const [selected, setSelected] = useState<string | null>(null);
   const [legalSquares, setLegalSquares] = useState<string[]>([]);
   const [legalCaptures, setLegalCaptures] = useState<string[]>([]);
   const [promotion, setPromotion] = useState<{ from: string; to: string } | null>(null);
 
-  // Sync FEN when it changes (online mode)
-  useEffect(() => {
-    if (fen && fen !== chess.fen()) {
-      chess.load(fen);
-    }
-  }, [fen, chess]);
+  const computeLegal = useCallback((sq: string) => {
+    const moves = chess.moves({ square: sq as Square, verbose: true });
+    const targets = moves.map(m => m.to);
+    const captures = moves.filter(m => m.flags.includes('c') || m.flags.includes('e')).map(m => m.to);
+    setLegalSquares(targets);
+    setLegalCaptures(captures);
+  }, [chess]);
 
   const selectSquare = useCallback((sq: string) => {
     if (disabled) return;
 
-    const piece = chess.get(sq as any);
+    const piece = chess.get(sq as Square);
 
     // If a square is already selected
     if (selected) {
@@ -77,15 +78,7 @@ export default function ChessBoard({ fen, playerColor, onMove, disabled = false,
       setSelected(sq);
       computeLegal(sq);
     }
-  }, [chess, selected, legalSquares, legalCaptures, playerColor, disabled, onMove]);
-
-  function computeLegal(sq: string) {
-    const moves = chess.moves({ square: sq as any, verbose: true });
-    const targets = moves.map((m: any) => m.to);
-    const captures = moves.filter((m: any) => m.flags.includes('c') || m.flags.includes('e')).map((m: any) => m.to);
-    setLegalSquares(targets);
-    setLegalCaptures(captures);
-  }
+  }, [chess, selected, legalSquares, legalCaptures, playerColor, disabled, onMove, computeLegal]);
 
   function handlePromotion(piece: string) {
     if (!promotion) return;

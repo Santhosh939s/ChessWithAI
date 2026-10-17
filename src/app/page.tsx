@@ -16,24 +16,31 @@ type Screen = 'home' | 'ai' | 'online';
 
 export default function HomePage() {
   const [screen, setScreen] = useState<Screen>('home');
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('chess_user_session');
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+    return null;
+  });
   const [showAuth, setShowAuth] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [pendingMode, setPendingMode] = useState<Screen | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        if (localStorage.getItem('chess_user_session')) return false;
+      } catch {}
+    }
+    return true;
+  });
 
-  // Read local cache immediately to prevent flash & listen to Firebase auth state
+  // Listen to Firebase auth state
   useEffect(() => {
-    try {
-      const cached = localStorage.getItem('chess_user_session');
-      if (cached) {
-        setUser(JSON.parse(cached));
-        setAuthLoading(false);
-      }
-    } catch {}
-
     const unsub = onAuthChange(async (firebaseUser) => {
       if (firebaseUser) {
         try {

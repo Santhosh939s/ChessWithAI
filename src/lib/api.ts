@@ -9,7 +9,7 @@ import {
 } from 'firebase/auth';
 import {
   doc, setDoc, getDoc, updateDoc, increment, deleteDoc, onSnapshot,
-  collection, query, orderBy, limit, getDocs, where,
+  collection, query, orderBy, limit, getDocs,
 } from 'firebase/firestore';
 import { getFirebaseAuth, getFirebaseDb } from './firebase';
 
@@ -276,11 +276,14 @@ export async function enterMatchmakingQueue(
       const data = typeof d.data === 'function' ? d.data() : d;
       const age = Date.now() - (data?.createdAt || 0);
 
-      // Ignore invalid entries
-      if (!data || !data.uid || !data.peerId) continue;
+      // Ignore invalid entries or self
+      if (!data || !data.uid || !data.peerId || data.uid === myUid) continue;
 
-      // Filter for valid active waiting players (excluding self)
-      if (data.uid !== myUid && data.status === 'waiting') {
+      // Filter out stale queue entries older than 45 seconds (or with extreme clock skew)
+      if (age > 45000 || age < -30000) continue;
+
+      // Filter for valid active waiting players
+      if (data.status === 'waiting') {
         const oppRating = data.rating ?? Math.min(1000, (data.wins || 0) * 30);
         const diff = Math.abs(oppRating - myRating);
         if (diff < minDiff) {
@@ -292,12 +295,18 @@ export async function enterMatchmakingQueue(
 
     if (bestMatch && !matched) {
       matched = true;
+      // Deterministic tie-breaking:
+      // Compare UIDs lexicographically so EXACTLY ONE player is 'guest' (caller)
+      // and the other is 'host' (listener). This avoids dual-connection glare & collisions on mobile.
+      const isCaller = myUid.localeCompare(bestMatch.uid) < 0;
+      const role: 'host' | 'guest' = isCaller ? 'guest' : 'host';
+
       // Delete own queue doc so no one else picks us
       deleteDoc(myDocRef).catch(() => {});
 
       onMatched({
         peerId: bestMatch.peerId,
-        role: 'guest',
+        role,
         oppName: bestMatch.username || 'Opponent',
       });
     }

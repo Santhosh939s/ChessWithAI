@@ -18,7 +18,7 @@ const INITIAL_TIME = 600; // 10 minutes in seconds
 
 export default function AIGame({ user, onGameEnd, onBack }: Props) {
   const chessRef = useRef(new Chess());
-  const [fen, setFen] = useState(chessRef.current.fen());
+  const [fen, setFen] = useState(new Chess().fen());
   const [playerColor] = useState<'w' | 'b'>(() => Math.random() < 0.5 ? 'w' : 'b');
   const [thinking, setThinking] = useState(false);
   const [status, setStatus] = useState('');
@@ -28,20 +28,20 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
   const [checkSquare, setCheckSquare] = useState<string | null>(null);
 
   // Board color theme state (defaulting to invented 'cyber' palette)
-  const [theme, setTheme] = useState<BoardTheme>('cyber');
+  const [theme, setTheme] = useState<BoardTheme>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('chess_theme') as BoardTheme;
+      if (saved && ['cyber', 'sapphire', 'amethyst'].includes(saved)) {
+        return saved;
+      }
+    }
+    return 'cyber';
+  });
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
 
   // Move replay state (null = showing live board)
   const [viewIndex, setViewIndex] = useState<number | null>(null);
-
-  // Load persisted theme preference
-  useEffect(() => {
-    const saved = localStorage.getItem('chess_theme') as BoardTheme;
-    if (saved && ['cyber', 'sapphire', 'amethyst'].includes(saved)) {
-      setTheme(saved);
-    }
-  }, []);
 
   function handleSelectTheme(newTheme: BoardTheme) {
     setTheme(newTheme);
@@ -55,6 +55,47 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
   const tier = getTier(user?.wins ?? 0);
   const aiDepth = tier.depth;
   const aiColor = playerColor === 'w' ? 'b' : 'w';
+
+  function handleTimeout(timedOutColor: 'w' | 'b') {
+    const playerWon = timedOutColor === aiColor;
+    const result = playerWon ? 'win' : 'loss';
+    setStatus(`Time's up! ${playerWon ? 'You win on time! 🏆' : 'AI wins on time!'}`);
+    setGameOver(result);
+  }
+
+  function findKingSquare(chess: Chess, color: 'w' | 'b'): string | null {
+    const board = chess.board();
+    for (let r = 0; r < 8; r++) {
+      for (let f = 0; f < 8; f++) {
+        const p = board[r][f];
+        if (p && p.type === 'k' && p.color === color) return p.square;
+      }
+    }
+    return null;
+  }
+
+  const updateStatus = useCallback((chess: Chess) => {
+    if (chess.isCheckmate()) {
+      const playerWon = chess.turn() === aiColor;
+      setStatus(`Checkmate! ${playerWon ? 'You win! 🏆' : 'AI wins!'}`);
+      const result = playerWon ? 'win' : 'loss';
+      setGameOver(result);
+    } else if (chess.isStalemate()) {
+      setStatus('Stalemate — Draw!'); setGameOver('draw');
+    } else if (chess.isInsufficientMaterial()) {
+      setStatus('Insufficient material — Draw!'); setGameOver('draw');
+    } else if (chess.isThreefoldRepetition()) {
+      setStatus('Threefold repetition — Draw!'); setGameOver('draw');
+    } else if (chess.isDraw()) {
+      setStatus('Draw!'); setGameOver('draw');
+    } else if (chess.inCheck()) {
+      setCheckSquare(findKingSquare(chess, chess.turn()));
+      setStatus(`${chess.turn() === 'w' ? 'White' : 'Black'} is in check!`);
+    } else {
+      setCheckSquare(null);
+      setStatus(chess.turn() === playerColor ? 'Your turn' : 'AI thinking…');
+    }
+  }, [aiColor, playerColor]);
 
   // ── Timer Effect ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -84,48 +125,8 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
     }, 1000);
 
     return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameOver]);
-
-  function handleTimeout(timedOutColor: 'w' | 'b') {
-    const playerWon = timedOutColor === aiColor;
-    const result = playerWon ? 'win' : 'loss';
-    setStatus(`Time's up! ${playerWon ? 'You win on time! 🏆' : 'AI wins on time!'}`);
-    setGameOver(result);
-  }
-
-  function findKingSquare(chess: Chess, color: 'w' | 'b'): string | null {
-    const board = chess.board();
-    for (let r = 0; r < 8; r++) {
-      for (let f = 0; f < 8; f++) {
-        const p = board[r][f];
-        if (p && p.type === 'k' && p.color === color) return p.square;
-      }
-    }
-    return null;
-  }
-
-  function updateStatus(chess: Chess) {
-    if (chess.isCheckmate()) {
-      const playerWon = chess.turn() === aiColor;
-      setStatus(`Checkmate! ${playerWon ? 'You win! 🏆' : 'AI wins!'}`);
-      const result = playerWon ? 'win' : 'loss';
-      setGameOver(result);
-    } else if (chess.isStalemate()) {
-      setStatus('Stalemate — Draw!'); setGameOver('draw');
-    } else if (chess.isInsufficientMaterial()) {
-      setStatus('Insufficient material — Draw!'); setGameOver('draw');
-    } else if (chess.isThreefoldRepetition()) {
-      setStatus('Threefold repetition — Draw!'); setGameOver('draw');
-    } else if (chess.isDraw()) {
-      setStatus('Draw!'); setGameOver('draw');
-    } else if (chess.inCheck()) {
-      setCheckSquare(findKingSquare(chess, chess.turn()));
-      setStatus(`${chess.turn() === 'w' ? 'White' : 'Black'} is in check!`);
-    } else {
-      setCheckSquare(null);
-      setStatus(chess.turn() === playerColor ? 'Your turn' : 'AI thinking…');
-    }
-  }
 
   const makeAIMove = useCallback(() => {
     const chess = chessRef.current;
@@ -145,7 +146,7 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
       }
       setThinking(false);
     }, 300);
-  }, [aiColor, aiDepth]);
+  }, [aiColor, aiDepth, updateStatus]);
 
   // Initial check if AI plays White (goes first)
   useEffect(() => {
@@ -226,7 +227,8 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
 
   const userTime  = playerColor === 'w' ? whiteTime : blackTime;
   const aiTime    = playerColor === 'w' ? blackTime : whiteTime;
-  const isUserTurn = chessRef.current.turn() === playerColor;
+  const currentTurn = (fen.split(' ')[1] || 'w') as 'w' | 'b';
+  const isUserTurn = currentTurn === playerColor;
 
   const colorLabel = playerColor === 'w' ? '⬜ White' : '⬛ Black';
   const aiLabel    = playerColor === 'w' ? '⬛ Black' : '⬜ White';
