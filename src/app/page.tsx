@@ -130,26 +130,21 @@ export default function HomePage() {
             {!mounted || authLoading ? (
               <div style={{ width: 80, height: 36, background: 'rgba(255,255,255,0.05)', borderRadius: 10 }} />
             ) : user ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                <button
-                  className="btn btn-secondary nav-profile-pill"
-                  onClick={() => setShowProfile(true)}
-                  title="View & Edit Profile"
-                >
-                  <span style={{ fontSize: '1.1rem' }}>👤</span>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: '0.82rem', fontWeight: 800, lineHeight: 1.1 }}>
-                      {user.username}
-                    </div>
-                    <div style={{ fontSize: '0.66rem', color: tier?.color, fontWeight: 600, marginTop: 2 }}>
-                      ⭐ {user.rating ?? Math.min(1000, (user.wins || 0) * 30)} · {tier?.name}
-                    </div>
+              <button
+                className="btn btn-secondary nav-profile-pill"
+                onClick={() => setShowProfile(true)}
+                title="View & Edit Profile"
+              >
+                <span style={{ fontSize: '1.1rem' }}>👤</span>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 800, lineHeight: 1.1 }}>
+                    {user.username}
                   </div>
-                </button>
-                <button className="btn btn-secondary nav-signout-btn" onClick={handleLogout} title="Sign Out">
-                  🚪
-                </button>
-              </div>
+                  <div style={{ fontSize: '0.66rem', color: tier?.color, fontWeight: 600, marginTop: 2 }}>
+                    ⭐ {user.rating ?? Math.min(1000, (user.wins || 0) * 30)} · {tier?.name}
+                  </div>
+                </div>
+              </button>
             ) : (
               <button className="btn btn-primary" onClick={() => setShowAuth(true)}>Sign In</button>
             )}
@@ -263,6 +258,7 @@ export default function HomePage() {
             localStorage.setItem('chess_user_session', JSON.stringify(fullUser));
             showToast(`Username updated to ${updated.username}! ✨`);
           }}
+          onLogout={handleLogout}
           onClose={() => setShowProfile(false)}
         />
       )}

@@ -15,12 +15,12 @@ import { getFirebaseAuth, getFirebaseDb } from './firebase';
 
 // ─── Rank Tiers (0 to 1000+ Rating Points) ───────────────────────────────────
 export const RANK_TIERS = [
-  { name: 'Pawn',   min: 0,   max: 150,  depth: 2, color: '#94a3b8', emoji: '♙' },
-  { name: 'Knight', min: 151, max: 350,  depth: 3, color: '#10b981', emoji: '♘' },
-  { name: 'Bishop', min: 351, max: 550,  depth: 3, color: '#3b82f6', emoji: '♗' },
-  { name: 'Rook',   min: 551, max: 750,  depth: 4, color: '#8b5cf6', emoji: '♖' },
-  { name: 'Queen',  min: 751, max: 900,  depth: 4, color: '#f59e0b', emoji: '♛' },
-  { name: 'King',   min: 901, max: Infinity, depth: 5, color: '#f43f5e', emoji: '♚' },
+  { name: 'Pawn', min: 0, max: 150, depth: 2, color: '#94a3b8', emoji: '♙' },
+  { name: 'Knight', min: 151, max: 350, depth: 3, color: '#10b981', emoji: '♘' },
+  { name: 'Bishop', min: 351, max: 550, depth: 3, color: '#3b82f6', emoji: '♗' },
+  { name: 'Rook', min: 551, max: 750, depth: 4, color: '#8b5cf6', emoji: '♖' },
+  { name: 'Queen', min: 751, max: 900, depth: 4, color: '#f59e0b', emoji: '♛' },
+  { name: 'King', min: 901, max: Infinity, depth: 5, color: '#f43f5e', emoji: '♚' },
 ];
 
 export function getTier(rating: number = 0) {
@@ -113,7 +113,7 @@ export async function changeUsername(uid: string, currentUsername: string, newUs
   // Add new compressed entry and remove old compressed entry
   await setDoc(doc(db, 'usernames', newCompressed), { uid, username: trimmed });
   if (currentCompressed) {
-    deleteDoc(doc(db, 'usernames', currentCompressed)).catch(() => {});
+    deleteDoc(doc(db, 'usernames', currentCompressed)).catch(() => { });
   }
 
   return trimmed;
@@ -138,8 +138,8 @@ export async function loginWithGoogle(): Promise<UserProfile> {
   }
 
   // First time — create profile using Google display name
-  const rawName = cred.user.displayName || cred.user.email?.split('@')[0] || `player${uid.slice(0,4)}`;
-  const compressed = compressUsername(rawName) || `player${uid.slice(0,4)}`;
+  const rawName = cred.user.displayName || cred.user.email?.split('@')[0] || `player${uid.slice(0, 4)}`;
+  const compressed = compressUsername(rawName) || `player${uid.slice(0, 4)}`;
   const username = rawName.slice(0, 20);
   const tag = generateUserTag(uid);
   const profile: UserProfile = {
@@ -174,7 +174,7 @@ export async function getProfileById(uid: string, firebaseUser?: User): Promise<
       const profile = snap.data() as UserProfile;
       if (!profile.userTag) {
         profile.userTag = generateUserTag(uid);
-        await updateDoc(doc(db, 'users', uid), { userTag: profile.userTag }).catch(() => {});
+        await updateDoc(doc(db, 'users', uid), { userTag: profile.userTag }).catch(() => { });
       }
       return profile;
     }
@@ -184,7 +184,7 @@ export async function getProfileById(uid: string, firebaseUser?: User): Promise<
 
   // Auto-recovery if logged in via Auth but doc is missing or errored
   if (firebaseUser) {
-    const rawName = firebaseUser.displayName?.replace(/\s+/g, '').toLowerCase() || firebaseUser.email?.split('@')[0] || `player${uid.slice(0,4)}`;
+    const rawName = firebaseUser.displayName?.replace(/\s+/g, '').toLowerCase() || firebaseUser.email?.split('@')[0] || `player${uid.slice(0, 4)}`;
     const username = rawName.slice(0, 20);
     const tag = generateUserTag(uid);
     const profile: UserProfile = {
@@ -195,7 +195,7 @@ export async function getProfileById(uid: string, firebaseUser?: User): Promise<
       wins: 0, losses: 0, draws: 0, gamesPlayed: 0, rating: 0,
       createdAt: new Date().toISOString(),
     };
-    await setDoc(doc(db, 'users', uid), profile).catch(() => {});
+    await setDoc(doc(db, 'users', uid), profile).catch(() => { });
     return profile;
   }
 
@@ -226,9 +226,9 @@ export async function updateStats(
     await updateDoc(doc(db, 'users', uid), {
       rating: newRating,
       gamesPlayed: increment(1),
-      ...(result === 'win'  ? { wins:   increment(1) } : {}),
+      ...(result === 'win' ? { wins: increment(1) } : {}),
       ...(result === 'loss' ? { losses: increment(1) } : {}),
-      ...(result === 'draw' ? { draws:  increment(1) } : {}),
+      ...(result === 'draw' ? { draws: increment(1) } : {}),
     });
   } catch (e) {
     console.warn('Error updating user stats:', e);
@@ -302,7 +302,7 @@ export async function enterMatchmakingQueue(
       const role: 'host' | 'guest' = isCaller ? 'guest' : 'host';
 
       // Delete own queue doc so no one else picks us
-      deleteDoc(myDocRef).catch(() => {});
+      deleteDoc(myDocRef).catch(() => { });
 
       onMatched({
         peerId: bestMatch.peerId,
@@ -341,8 +341,8 @@ export async function enterMatchmakingQueue(
   // Cleanup function
   return () => {
     matched = true;
-    try { unsubCollection(); } catch {}
-    deleteDoc(myDocRef).catch(() => {});
+    try { unsubCollection(); } catch { }
+    deleteDoc(myDocRef).catch(() => { });
   };
 }
 
@@ -350,5 +350,5 @@ export async function leaveMatchmakingQueue(uid: string) {
   const db = getFirebaseDb();
   try {
     await deleteDoc(doc(db, 'matchmaking_queue', uid));
-  } catch {}
+  } catch { }
 }

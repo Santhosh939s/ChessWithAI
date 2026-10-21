@@ -5,10 +5,11 @@ import { changeUsername, getTier, type UserProfile } from '@/lib/api';
 interface Props {
   user: UserProfile;
   onUpdateUser: (updatedUser: UserProfile) => void;
+  onLogout?: () => void;
   onClose: () => void;
 }
 
-export default function ProfileModal({ user, onUpdateUser, onClose }: Props) {
+export default function ProfileModal({ user, onUpdateUser, onLogout, onClose }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [newUsername, setNewUsername] = useState(user.username);
   const [loading, setLoading] = useState(false);
@@ -216,6 +217,34 @@ export default function ProfileModal({ user, onUpdateUser, onClose }: Props) {
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
               Compressed database storage active for unique username matching
             </span>
+          </div>
+        )}
+
+        {/* Log Out Option - Placed exclusively inside Profile Section */}
+        {onLogout && (
+          <div style={{ marginTop: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={() => {
+                onLogout();
+                onClose();
+              }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                padding: '0.65rem 1rem',
+                fontSize: '0.9rem',
+                fontWeight: 700,
+                borderRadius: 10
+              }}
+            >
+              <span>🚪</span>
+              <span>Log Out</span>
+            </button>
           </div>
         )}
       </div>
