@@ -128,13 +128,29 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameOver]);
 
+  const workerRef = useRef<Worker | null>(null);
+
+  // Initialize Web Worker for AI computation off the main thread
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        workerRef.current = new Worker(new URL('../lib/ai.worker.ts', import.meta.url));
+      } catch (e) {
+        console.warn('Web Worker fallback to main thread:', e);
+      }
+    }
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, []);
+
   const makeAIMove = useCallback(() => {
     const chess = chessRef.current;
     if (chess.isGameOver() || chess.turn() !== aiColor) return;
 
     setThinking(true);
-    setTimeout(() => {
-      const move = getAIMove(chess, aiDepth);
+
+    const onMoveCalculated = (move: any) => {
       if (move) {
         chess.move(move);
         const history = chess.history({ verbose: true });
@@ -145,7 +161,24 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
         updateStatus(chess);
       }
       setThinking(false);
-    }, 300);
+    };
+
+    if (workerRef.current) {
+      workerRef.current.onmessage = (e: MessageEvent) => {
+        if (e.data?.success && e.data?.move) {
+          onMoveCalculated(e.data.move);
+        } else {
+          const fallback = getAIMove(chess, aiDepth);
+          onMoveCalculated(fallback);
+        }
+      };
+      workerRef.current.postMessage({ fen: chess.fen(), depth: aiDepth });
+    } else {
+      setTimeout(() => {
+        const move = getAIMove(chess, aiDepth);
+        onMoveCalculated(move);
+      }, 50);
+    }
   }, [aiColor, aiDepth, updateStatus]);
 
   // Initial check if AI plays White (goes first)
@@ -192,6 +225,7 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
 
   // ── Calculate Board & Last Move to Display (Cached with useMemo for 0ms lag) ─
   const historyCache = useMemo(() => {
+    if (viewIndex === null) return { fens: [], moves: [] };
     const replay = new Chess();
     const fens: string[] = [replay.fen()];
     const moves: ({ from: string; to: string } | null)[] = [null];
@@ -201,7 +235,7 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
       moves.push({ from: m.from, to: m.to });
     }
     return { fens, moves };
-  }, [moveHistory]);
+  }, [moveHistory, viewIndex]);
 
   const isReplaying = viewIndex !== null && viewIndex < moveHistory.length;
   let displayFen = fen;

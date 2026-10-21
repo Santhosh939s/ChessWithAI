@@ -1,5 +1,5 @@
 'use client';
-import { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Chess, type Square } from 'chess.js';
 import ChessPiece from './ChessPiece';
 import PromotionModal from './PromotionModal';
@@ -16,7 +16,7 @@ interface Props {
   checkSquare?: string | null;
 }
 
-export default function ChessBoard({ fen, playerColor, onMove, disabled = false, lastMove, checkSquare }: Props) {
+function ChessBoard({ fen, playerColor, onMove, disabled = false, lastMove, checkSquare }: Props) {
   const chess = useMemo(() => new Chess(fen ?? undefined), [fen]);
   const [selected, setSelected] = useState<string | null>(null);
   const [legalSquares, setLegalSquares] = useState<string[]>([]);
@@ -171,3 +171,5 @@ export default function ChessBoard({ fen, playerColor, onMove, disabled = false,
     </>
   );
 }
+
+export default React.memo(ChessBoard);

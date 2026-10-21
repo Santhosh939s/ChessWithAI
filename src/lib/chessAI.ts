@@ -86,14 +86,6 @@ const PIECE_TABLES: Record<string, number[]> = {
   k: KING_MID_TABLE,
 };
 
-function squareIndex(square: string, isWhite: boolean): number {
-  const file = square.charCodeAt(0) - 'a'.charCodeAt(0);
-  const rank = parseInt(square[1]) - 1;
-  // White: rank 0 = bottom (index 56), rank 7 = top (index 0)
-  const row = isWhite ? 7 - rank : rank;
-  return row * 8 + file;
-}
-
 export function evaluateBoard(chess: any): number {
   if (chess.isCheckmate()) return chess.turn() === 'w' ? -9999 : 9999;
   if (chess.isStalemate() || chess.isInsufficientMaterial()) return 0;
@@ -102,13 +94,13 @@ export function evaluateBoard(chess: any): number {
   const board = chess.board();
 
   for (let r = 0; r < 8; r++) {
+    const row = board[r];
     for (let f = 0; f < 8; f++) {
-      const piece = board[r][f];
+      const piece = row[f];
       if (!piece) continue;
       const isWhite = piece.color === 'w';
       const pv = PIECE_VALUES[piece.type] ?? 0;
-      const square = piece.square;
-      const idx = squareIndex(square, isWhite);
+      const idx = isWhite ? r * 8 + f : (7 - r) * 8 + f;
       const positional = PIECE_TABLES[piece.type]?.[idx] ?? 0;
       const total = pv + positional;
       score += isWhite ? total : -total;
@@ -116,6 +108,15 @@ export function evaluateBoard(chess: any): number {
   }
   return score;
 }
+
+interface TTEntry {
+  depth: number;
+  score: number;
+  bestMove: any;
+  flag: 'EXACT' | 'LOWERBOUND' | 'UPPERBOUND';
+}
+
+const transpositionTable = new Map<string, TTEntry>();
 
 export function minimax(
   chess: any,
@@ -128,15 +129,32 @@ export function minimax(
     return [evaluateBoard(chess), null];
   }
 
+  const fenKey = chess.fen();
+  const cached = transpositionTable.get(fenKey);
+  if (cached && cached.depth >= depth) {
+    if (cached.flag === 'EXACT') {
+      return [cached.score, cached.bestMove];
+    }
+    if (cached.flag === 'LOWERBOUND' && cached.score >= beta) {
+      return [cached.score, cached.bestMove];
+    }
+    if (cached.flag === 'UPPERBOUND' && cached.score <= alpha) {
+      return [cached.score, cached.bestMove];
+    }
+  }
+
+  const originalAlpha = alpha;
   const moves = chess.moves({ verbose: true });
-  // Move ordering: captures first
+  // Move ordering: best cached move first, then captures, then quiet moves
   moves.sort((a: any, b: any) => {
+    if (cached?.bestMove && a.san === cached.bestMove.san) return -1;
+    if (cached?.bestMove && b.san === cached.bestMove.san) return 1;
     const aCapture = a.flags.includes('c') ? 1 : 0;
     const bCapture = b.flags.includes('c') ? 1 : 0;
     return bCapture - aCapture;
   });
 
-  let bestMove = moves[0] ?? null;
+  let bestMove = cached?.bestMove ?? moves[0] ?? null;
 
   if (maximizing) {
     let maxEval = -Infinity;
@@ -148,6 +166,12 @@ export function minimax(
       alpha = Math.max(alpha, evalScore);
       if (beta <= alpha) break;
     }
+
+    let flag: 'EXACT' | 'LOWERBOUND' | 'UPPERBOUND' = 'EXACT';
+    if (maxEval <= originalAlpha) flag = 'UPPERBOUND';
+    else if (maxEval >= beta) flag = 'LOWERBOUND';
+    transpositionTable.set(fenKey, { depth, score: maxEval, bestMove, flag });
+
     return [maxEval, bestMove];
   } else {
     let minEval = Infinity;
@@ -159,11 +183,20 @@ export function minimax(
       beta = Math.min(beta, evalScore);
       if (beta <= alpha) break;
     }
+
+    let flag: 'EXACT' | 'LOWERBOUND' | 'UPPERBOUND' = 'EXACT';
+    if (minEval <= originalAlpha) flag = 'UPPERBOUND';
+    else if (minEval >= beta) flag = 'LOWERBOUND';
+    transpositionTable.set(fenKey, { depth, score: minEval, bestMove, flag });
+
     return [minEval, bestMove];
   }
 }
 
 export function getAIMove(chess: any, depth: number = 3): any {
+  if (transpositionTable.size > 20000) {
+    transpositionTable.clear();
+  }
   const isBlack = chess.turn() === 'b';
   const [, move] = minimax(chess, depth, -Infinity, Infinity, !isBlack);
   return move;

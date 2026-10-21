@@ -410,9 +410,12 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
 
   function handlePlayerMove(move: any) {
     const chess = chessRef.current;
-    connRef.current?.send({ type: 'MOVE', move: { from: move.from, to: move.to, promotion: move.promotion } });
+    const executed = chess.move({ from: move.from, to: move.to, promotion: move.promotion });
+    if (!executed) return;
+
+    connRef.current?.send({ type: 'MOVE', move: { from: executed.from, to: executed.to, promotion: move.promotion } });
     setFen(chess.fen());
-    setLastMove({ from: move.from, to: move.to });
+    setLastMove({ from: executed.from, to: executed.to });
     const history = chess.history({ verbose: true });
     setMoveHistory(history);
     setViewIndex(null);
@@ -460,6 +463,7 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
 
   // ── Calculate Board & Last Move to Display (Cached with useMemo for 0ms lag) ─
   const historyCache = useMemo(() => {
+    if (viewIndex === null) return { fens: [], moves: [] };
     const replay = new Chess();
     const fens: string[] = [replay.fen()];
     const moves: ({ from: string; to: string } | null)[] = [null];
@@ -469,7 +473,7 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
       moves.push({ from: m.from, to: m.to });
     }
     return { fens, moves };
-  }, [moveHistory]);
+  }, [moveHistory, viewIndex]);
 
   const isReplaying = viewIndex !== null && viewIndex < moveHistory.length;
   let displayFen = fen;

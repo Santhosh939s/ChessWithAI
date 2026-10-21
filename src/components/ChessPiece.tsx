@@ -163,7 +163,7 @@ interface Props {
   dragging?: boolean;
 }
 
-export default function ChessPiece({ type, color, dragging = false }: Props) {
+function ChessPiece({ type, color, dragging = false }: Props) {
   const key = type.toLowerCase();
   const renderSvg = PIECE_SVGS[key];
 
@@ -180,3 +180,5 @@ export default function ChessPiece({ type, color, dragging = false }: Props) {
     </div>
   );
 }
+
+export default React.memo(ChessPiece);
