@@ -24,6 +24,17 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        {['wp', 'wn', 'wb', 'wr', 'wq', 'wk', 'bp', 'bn', 'bb', 'br', 'bq', 'bk'].map((p) => (
+          <link
+            key={p}
+            rel="preload"
+            href={`/pieces/neo/${p}.png`}
+            as="image"
+            type="image/png"
+          />
+        ))}
+      </head>
       <body>{children}</body>
     </html>
   );

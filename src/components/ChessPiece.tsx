@@ -1,7 +1,8 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
+import Image from 'next/image';
 
-// Official Staunton / Chess.com Neo Vector Piece Set
+// Official Staunton / Chess.com Vector SVGs (High-res Vector Fallback)
 const PIECE_SVGS: Record<string, (color: 'w' | 'b') => React.ReactNode> = {
   p: (color) => {
     const isWhite = color === 'w';
@@ -11,7 +12,7 @@ const PIECE_SVGS: Record<string, (color: 'w' | 'b') => React.ReactNode> = {
         <path
           d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z"
           fill={fillColor}
-          stroke="#000000"
+          stroke="#1a1a1a"
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -28,7 +29,7 @@ const PIECE_SVGS: Record<string, (color: 'w' | 'b') => React.ReactNode> = {
         <g
           fill={fillColor}
           fillRule="evenodd"
-          stroke="#000000"
+          stroke="#1a1a1a"
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -39,7 +40,7 @@ const PIECE_SVGS: Record<string, (color: 'w' | 'b') => React.ReactNode> = {
           <path
             d="M11 14h23l-2 18H13l-2-18zM12 36h21l-1.5-4h-18L12 36z"
             fill="none"
-            stroke="#000000"
+            stroke="#1a1a1a"
             strokeWidth="1.5"
           />
         </g>
@@ -55,7 +56,7 @@ const PIECE_SVGS: Record<string, (color: 'w' | 'b') => React.ReactNode> = {
         <g
           fill={fillColor}
           fillRule="evenodd"
-          stroke="#000000"
+          stroke="#1a1a1a"
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -64,14 +65,14 @@ const PIECE_SVGS: Record<string, (color: 'w' | 'b') => React.ReactNode> = {
           <path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,8.5 C 14.5,9 16.5,10 16.5,10 L 22,10 C 22,10 24.34,14.65 24,18 z" />
           <path
             d="M 9.5,25.5 A 0.5,0.5 0 1 1 8.5,25.5 A 0.5,0.5 0 1 1 9.5,25.5 z"
-            fill={isWhite ? '#000000' : '#ffffff'}
-            stroke={isWhite ? '#000000' : '#ffffff'}
+            fill={isWhite ? '#1a1a1a' : '#ffffff'}
+            stroke={isWhite ? '#1a1a1a' : '#ffffff'}
           />
           <path
             d="M 15,15.5 A 0.5,1.5 0 1 1 14,15.5 A 0.5,1.5 0 1 1 15,15.5 z"
             transform="matrix(0.866,0.5,-0.5,0.866,9.693,-5.173)"
-            fill={isWhite ? '#000000' : '#ffffff'}
-            stroke={isWhite ? '#000000' : '#ffffff'}
+            fill={isWhite ? '#1a1a1a' : '#ffffff'}
+            stroke={isWhite ? '#1a1a1a' : '#ffffff'}
           />
         </g>
       </svg>
@@ -86,7 +87,7 @@ const PIECE_SVGS: Record<string, (color: 'w' | 'b') => React.ReactNode> = {
         <g
           fill={fillColor}
           fillRule="evenodd"
-          stroke="#000000"
+          stroke="#1a1a1a"
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -98,7 +99,7 @@ const PIECE_SVGS: Record<string, (color: 'w' | 'b') => React.ReactNode> = {
             <path d="M17.5 26h10c.5-2 1.5-4 1.5-6 0-5-3.5-8-6.5-8s-6.5 3-6.5 8c0 2 1 4 1.5 6z" />
           </g>
           <path d="M11 14c3.5 0 6.5 3 6.5 8 0 2-1 4-1.5 6h13c-.5-2-1.5-4-1.5-6 0-5-3-8-6.5-8" />
-          <path d="M20 18h5M22.5 15.5v5" fill="none" stroke="#000000" strokeWidth="1.5" />
+          <path d="M20 18h5M22.5 15.5v5" fill="none" stroke="#1a1a1a" strokeWidth="1.5" />
         </g>
       </svg>
     );
@@ -112,7 +113,7 @@ const PIECE_SVGS: Record<string, (color: 'w' | 'b') => React.ReactNode> = {
         <g
           fill={fillColor}
           fillRule="evenodd"
-          stroke="#000000"
+          stroke="#1a1a1a"
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -124,7 +125,7 @@ const PIECE_SVGS: Record<string, (color: 'w' | 'b') => React.ReactNode> = {
           <path
             d="M11 29c8.5-1.5 21.5-1.5 23 0M11 38.5h23"
             fill="none"
-            stroke="#000000"
+            stroke="#1a1a1a"
             strokeWidth="1.5"
           />
         </g>
@@ -140,12 +141,12 @@ const PIECE_SVGS: Record<string, (color: 'w' | 'b') => React.ReactNode> = {
         <g
           fill={fillColor}
           fillRule="evenodd"
-          stroke="#000000"
+          stroke="#1a1a1a"
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          <path d="M22.5 11.63V6M20 8h5" fill="none" stroke="#000000" strokeWidth="1.5" strokeLinejoin="miter" />
+          <path d="M22.5 11.63V6M20 8h5" fill="none" stroke="#1a1a1a" strokeWidth="1.5" strokeLinejoin="miter" />
           <path d="M22.5 25c-4 0-7.5 1.5-10.5 4.5s-4.5 6.5-4.5 10.5h30c0-4-1.5-7.5-4.5-10.5S26.5 25 22.5 25z" />
           <path d="M11.5 37c5.5 3.5 16.5 3.5 22 0v-7c-5.5 3.5-16.5 3.5-22 0v7z" />
           <path d="M11.5 30c5.5-3.5 16.5-3.5 22 0v-7c-5.5-3.5-16.5-3.5-22 0v7z" />
@@ -165,18 +166,38 @@ interface Props {
 
 function ChessPiece({ type, color, dragging = false }: Props) {
   const key = type.toLowerCase();
-  const renderSvg = PIECE_SVGS[key];
+  const pieceCode = `${color}${key}`;
+  const [imgError, setImgError] = useState(false);
 
-  if (!renderSvg) return null;
+  const pieceName = `${color === 'w' ? 'White' : 'Black'} ${
+    key === 'p' ? 'Pawn' :
+    key === 'r' ? 'Rook' :
+    key === 'n' ? 'Knight' :
+    key === 'b' ? 'Bishop' :
+    key === 'q' ? 'Queen' : 'King'
+  }`;
 
   return (
     <div
       className={`piece-container ${color === 'w' ? 'piece-white' : 'piece-black'} ${
         dragging ? 'piece-dragging' : ''
       }`}
-      aria-label={`${color === 'w' ? 'White' : 'Black'} ${type}`}
+      aria-label={pieceName}
     >
-      {renderSvg(color)}
+      {!imgError ? (
+        <Image
+          src={`/pieces/neo/${pieceCode}.png`}
+          alt={pieceName}
+          className="piece-img"
+          draggable={false}
+          width={120}
+          height={120}
+          priority
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        PIECE_SVGS[key]?.(color)
+      )}
     </div>
   );
 }

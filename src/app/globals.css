@@ -26,40 +26,53 @@
   --text-secondary: #94a3b8;
   --text-muted: #475569;
 
-  /* Default Invented Color Palette: Cyber Mint & Deep Teal Obsidian */
-  --board-light: #2dd4bf;
-  --board-dark: #0f3843;
-  --board-light-hover: #5eead4;
-  --board-dark-hover: #174b5a;
-  --board-selected: #f59e0b;
+  /* Default Color Palette: Sky Blue & Cloud White (rgb(124,182,225) & rgb(240,240,240)) */
+  --board-light: rgb(240, 240, 240);
+  --board-dark: rgb(124, 182, 225);
+  --board-light-hover: #f8fafc;
+  --board-dark-hover: #69a8d7;
+  --board-selected: #fef08a;
   --board-legal: rgba(0,0,0,0.22);
-  --board-last-move-light: #f59e0b;
-  --board-last-move-dark: #d97706;
+  --board-last-move-light: #fef08a;
+  --board-last-move-dark: #93c5fd;
   --board-check: radial-gradient(circle, rgba(244,63,94,0.95) 0%, rgba(225,29,72,0.6) 70%, transparent 100%);
-  --sq-light-text: #051f26;
-  --sq-dark-text: #5eead4;
+  --sq-light-text: #4582b0;
+  --sq-dark-text: #ffffff;
 
-  --shadow-glow: 0 0 40px rgba(45,212,191,0.25);
+  --shadow-glow: 0 0 40px rgba(124,182,225,0.25);
   --shadow-board: 0 25px 80px rgba(0,0,0,0.85);
   --radius: 12px;
   --radius-lg: 20px;
   --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
 }
 
-/* Theme 1: Cyber Mint & Deep Teal Obsidian (Invented Default) */
-[data-theme="cyber"] {
-  --board-light: #2dd4bf;
-  --board-dark: #0f3843;
-  --board-light-hover: #5eead4;
-  --board-dark-hover: #174b5a;
-  --board-selected: #f59e0b;
-  --board-last-move-light: #f59e0b;
-  --board-last-move-dark: #d97706;
-  --sq-light-text: #051f26;
-  --sq-dark-text: #5eead4;
+/* Theme 1: Sky Blue & Cloud White (Default) */
+[data-theme="skyblue"], [data-theme="cyber"] {
+  --board-light: rgb(240, 240, 240);
+  --board-dark: rgb(124, 182, 225);
+  --board-light-hover: #f8fafc;
+  --board-dark-hover: #69a8d7;
+  --board-selected: #fef08a;
+  --board-last-move-light: #fef08a;
+  --board-last-move-dark: #93c5fd;
+  --sq-light-text: #4582b0;
+  --sq-dark-text: #ffffff;
 }
 
-/* Theme 2: Royal Sapphire & Pearl Gold */
+/* Theme 2: Tournament Green (Chess.com Classic) */
+[data-theme="classic-green"] {
+  --board-light: #eeeed2;
+  --board-dark: #769656;
+  --board-light-hover: #f7f7e4;
+  --board-dark-hover: #83a562;
+  --board-selected: #f5f682;
+  --board-last-move-light: #f5f682;
+  --board-last-move-dark: #b9ca43;
+  --sq-light-text: #769656;
+  --sq-dark-text: #eeeed2;
+}
+
+/* Theme 3: Royal Sapphire & Pearl Gold */
 [data-theme="sapphire"] {
   --board-light: #fef3c7;
   --board-dark: #1e1b4b;
@@ -72,7 +85,7 @@
   --sq-dark-text: #fef3c7;
 }
 
-/* Theme 3: Midnight Neon Amethyst */
+/* Theme 4: Midnight Neon Amethyst */
 [data-theme="amethyst"] {
   --board-light: #e9d5ff;
   --board-dark: #3b0764;
@@ -377,7 +390,7 @@ body::before {
   50%       { filter: drop-shadow(0 0 20px rgba(239,68,68,1)); }
 }
 
-/* ─── Piece SVG ─── */
+/* ─── Piece Images & SVGs ─── */
 .piece-container {
   width: 90%;
   height: 90%;
@@ -390,18 +403,31 @@ body::before {
   user-select: none;
 }
 
+.piece-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.28));
+  will-change: transform;
+}
+
 .piece-svg {
   width: 100%;
   height: 100%;
   filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3));
 }
 
+.piece-container.piece-black .piece-img,
 .piece-container.piece-black .piece-svg {
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
 }
 
+.piece-container.piece-white .piece-img,
 .piece-container.piece-white .piece-svg {
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.28));
 }
 
 .square:hover .piece-container {

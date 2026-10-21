@@ -70,11 +70,11 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
   const [theme, setTheme] = useState<BoardTheme>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('chess_theme') as BoardTheme;
-      if (saved && ['cyber', 'sapphire', 'amethyst'].includes(saved)) {
+      if (saved && ['skyblue', 'classic-green', 'sapphire', 'amethyst', 'cyber'].includes(saved)) {
         return saved;
       }
     }
-    return 'cyber';
+    return 'skyblue';
   });
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);

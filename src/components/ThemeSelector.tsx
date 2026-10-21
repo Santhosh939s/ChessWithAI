@@ -1,6 +1,6 @@
 'use client';
 
-export type BoardTheme = 'cyber' | 'sapphire' | 'amethyst';
+export type BoardTheme = 'skyblue' | 'classic-green' | 'sapphire' | 'amethyst' | 'cyber';
 
 interface Props {
   currentTheme: BoardTheme;
@@ -10,11 +10,18 @@ interface Props {
 
 export const THEMES: { id: BoardTheme; name: string; desc: string; lightColor: string; darkColor: string }[] = [
   {
-    id: 'cyber',
-    name: 'Cyber Mint & Obsidian',
-    desc: 'Invented Neon Mint Teal & Obsidian Slate',
-    lightColor: '#2dd4bf',
-    darkColor: '#0f172a',
+    id: 'skyblue',
+    name: 'Sky Blue & Cloud White',
+    desc: 'Default Palette: rgb(124, 182, 225) & rgb(240, 240, 240)',
+    lightColor: 'rgb(240, 240, 240)',
+    darkColor: 'rgb(124, 182, 225)',
+  },
+  {
+    id: 'classic-green',
+    name: 'Tournament Green',
+    desc: 'Classic Chess.com Championship Green & Buff',
+    lightColor: '#eeeed2',
+    darkColor: '#769656',
   },
   {
     id: 'sapphire',

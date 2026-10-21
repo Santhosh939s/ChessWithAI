@@ -27,15 +27,15 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
   const [moveHistory, setMoveHistory] = useState<Move[]>([]);
   const [checkSquare, setCheckSquare] = useState<string | null>(null);
 
-  // Board color theme state (defaulting to invented 'cyber' palette)
+  // Board color theme state (defaulting to Sky Blue rgb(124,182,225) & rgb(240,240,240))
   const [theme, setTheme] = useState<BoardTheme>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('chess_theme') as BoardTheme;
-      if (saved && ['cyber', 'sapphire', 'amethyst'].includes(saved)) {
+      if (saved && ['skyblue', 'classic-green', 'sapphire', 'amethyst', 'cyber'].includes(saved)) {
         return saved;
       }
     }
-    return 'cyber';
+    return 'skyblue';
   });
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
