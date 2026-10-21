@@ -7,24 +7,27 @@
 }
 
 :root {
-  --bg-primary: #0a0a0f;
-  --bg-secondary: #111118;
+  --bg-primary: #12141a;
+  --bg-secondary: #1a1e26;
+  --bg-card: #212631;
   --bg-glass: rgba(255,255,255,0.04);
   --bg-glass-hover: rgba(255,255,255,0.07);
   --border-glass: rgba(255,255,255,0.08);
-  --border-glow: rgba(139,92,246,0.4);
+  --border-glow: rgba(124, 182, 225, 0.4);
 
-  --accent: #8b5cf6;
-  --accent-light: #a78bfa;
-  --accent-dark: #6d28d9;
+  /* Primary Brand Theme: Sky Blue rgb(124, 182, 225) & Cloud White rgb(240, 240, 240) */
+  --accent: rgb(124, 182, 225);
+  --accent-light: #a4d2f4;
+  --accent-dark: #589fd4;
+  --accent-deep: #3b82b6;
   --gold: #f59e0b;
   --gold-light: #fcd34d;
   --emerald: #10b981;
   --rose: #f43f5e;
 
-  --text-primary: #f1f5f9;
+  --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
-  --text-muted: #475569;
+  --text-muted: #64748b;
 
   /* Default Color Palette: Sky Blue & Cloud White (rgb(124,182,225) & rgb(240,240,240)) */
   --board-light: rgb(240, 240, 240);
@@ -116,8 +119,8 @@ body::before {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 80% 50% at 20% 10%, rgba(139,92,246,0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 60% at 80% 80%, rgba(245,158,11,0.06) 0%, transparent 60%);
+    radial-gradient(ellipse 80% 50% at 20% 10%, rgba(124, 182, 225, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 60% at 80% 80%, rgba(124, 182, 225, 0.05) 0%, transparent 60%);
   pointer-events: none;
   z-index: 0;
 }
@@ -769,14 +772,24 @@ body::before {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-  color: white;
-  box-shadow: 0 4px 15px rgba(139,92,246,0.3);
+  background: linear-gradient(180deg, #7cb6e1 0%, #589fd4 100%);
+  border: none;
+  border-bottom: 3px solid #3b82b6;
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 4px 15px rgba(124, 182, 225, 0.35);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 .btn-primary:hover {
+  background: linear-gradient(180deg, #8dc2e8 0%, #63a7dc 100%);
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(139,92,246,0.45);
+  box-shadow: 0 6px 20px rgba(124, 182, 225, 0.45);
+}
+
+.btn-primary:active {
+  transform: translateY(2px);
+  border-bottom-width: 1px;
 }
 
 .btn-secondary {
@@ -1494,4 +1507,640 @@ body::before {
 
 .form-input::placeholder {
   color: rgba(255, 255, 255, 0.4);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   CHESS.COM NATIVE MOBILE APP DASHBOARD (SKY BLUE SIGNATURE THEME)
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Mobile app container */
+.chess-app-shell {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  position: relative;
+  padding-bottom: 125px; /* space for floating Play button & Bottom Nav */
+}
+
+/* App Top Header Bar */
+.dash-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: rgba(18, 20, 26, 0.95);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid var(--border-glass);
+}
+
+.dash-user-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-glass);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem 0.25rem 0.35rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dash-user-pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(124, 182, 225, 0.3);
+}
+
+.dash-user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--board-dark);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.dash-user-name {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.dash-top-right {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.dash-stat-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--accent-light);
+  background: rgba(124, 182, 225, 0.12);
+  border: 1px solid rgba(124, 182, 225, 0.25);
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.dash-icon-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  font-size: 1.1rem;
+  transition: all 0.15s ease;
+}
+
+.dash-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dash-count-bubble {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 900;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+
+/* Featured / Puzzles Banner (Matches Image 1) */
+.dash-featured-banner {
+  margin: 0.75rem 1rem;
+  background: linear-gradient(135deg, #1c232d 0%, #151a22 100%);
+  border: 1px solid rgba(124, 182, 225, 0.25);
+  border-radius: 16px;
+  padding: 1.1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.dash-featured-banner::before {
+  content: '';
+  position: absolute;
+  top: -20px;
+  right: -20px;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(124, 182, 225, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.dash-featured-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.dash-featured-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.45rem;
+}
+
+.dash-progress-track {
+  width: 110px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.dash-progress-fill {
+  height: 100%;
+  width: 65%;
+  background: var(--accent);
+  border-radius: 4px;
+}
+
+.dash-featured-btn {
+  background: linear-gradient(180deg, #7cb6e1 0%, #589fd4 100%);
+  border: none;
+  border-bottom: 3px solid #3b82b6;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.95rem;
+  padding: 0.55rem 1.25rem;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(124, 182, 225, 0.35);
+  transition: all 0.15s ease;
+}
+
+.dash-featured-btn:active {
+  transform: translateY(2px);
+  border-bottom-width: 1px;
+}
+
+/* Sections & Headers */
+.dash-section {
+  padding: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.dash-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+}
+
+.dash-section-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dash-section-count {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.dash-view-all {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent-light);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dash-view-all:hover {
+  text-decoration: underline;
+}
+
+/* Horizontal Card Scroll */
+.dash-horizontal-scroll {
+  display: flex;
+  gap: 0.65rem;
+  overflow-x: auto;
+  padding-bottom: 0.4rem;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dash-horizontal-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Stats Cards */
+.dash-stat-card {
+  flex: 0 0 115px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-glass);
+  border-radius: 12px;
+  padding: 0.75rem 0.65rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dash-stat-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(124, 182, 225, 0.3);
+}
+
+.dash-stat-icon {
+  font-size: 1.4rem;
+  margin-bottom: 0.35rem;
+}
+
+.dash-stat-val {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.dash-stat-lbl {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Friends Cards (Matches Image 1) */
+.dash-friend-card {
+  flex: 0 0 140px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-glass);
+  border-radius: 14px;
+  padding: 0.85rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.dash-friend-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(124, 182, 225, 0.3);
+}
+
+.dash-friend-avatar-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 0.5rem;
+}
+
+.dash-friend-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  background: rgba(124, 182, 225, 0.15);
+  border: 1px solid rgba(124, 182, 225, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+}
+
+.dash-online-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #10b981;
+  border: 2px solid #14171d;
+}
+
+.dash-friend-name {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-friend-sub {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin: 2px 0 0.6rem;
+}
+
+.dash-friend-btn {
+  width: 100%;
+  padding: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dash-friend-btn:hover {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+}
+
+/* Find Friends Card */
+.dash-find-friends-card {
+  flex: 0 0 130px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  padding: 0.85rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dash-find-friends-card:hover {
+  background: rgba(124, 182, 225, 0.05);
+  border-color: var(--accent);
+}
+
+/* Game History Rows (Matches Image 2) */
+.dash-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dash-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.85rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-glass);
+  border-radius: 12px;
+  transition: all 0.15s ease;
+}
+
+.dash-history-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(124, 182, 225, 0.25);
+}
+
+.dash-history-left {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.dash-history-type-icon {
+  font-size: 1.15rem;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dash-history-opp-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(124, 182, 225, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.dash-history-opp-name {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-history-opp-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.dash-history-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.dash-outcome-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 900;
+}
+
+.dash-outcome-badge.win {
+  background: rgba(16, 185, 129, 0.18);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.dash-outcome-badge.loss {
+  background: rgba(244, 63, 94, 0.18);
+  color: #f43f5e;
+  border: 1px solid rgba(244, 63, 94, 0.4);
+}
+
+.dash-outcome-badge.draw {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-glass);
+}
+
+/* The Star Review Button from Image 2 */
+.dash-review-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #7cb6e1 0%, #589fd4 100%);
+  border: none;
+  border-bottom: 2px solid #3b82b6;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 8px rgba(124, 182, 225, 0.3);
+}
+
+.dash-review-btn:hover {
+  transform: scale(1.05);
+}
+
+.dash-review-btn:active {
+  transform: translateY(1px);
+  border-bottom-width: 1px;
+}
+
+/* ─── Big Floating Action "Play" Button (Matches Image 1 & 2) ─── */
+.dash-floating-play-container {
+  position: fixed;
+  bottom: 64px; /* sits right above bottom nav */
+  left: 0;
+  right: 0;
+  padding: 0.5rem 1rem;
+  max-width: 520px;
+  margin: 0 auto;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.dash-big-play-btn {
+  pointer-events: auto;
+  width: 100%;
+  padding: 0.95rem 1.5rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #7cb6e1 0%, #529fd6 100%);
+  border: none;
+  border-bottom: 5px solid #387fae;
+  color: #ffffff;
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 25px rgba(124, 182, 225, 0.45);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  transition: all 0.15s ease;
+}
+
+.dash-big-play-btn:hover {
+  background: linear-gradient(180deg, #8dc2e8 0%, #5da9de 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(124, 182, 225, 0.55);
+}
+
+.dash-big-play-btn:active {
+  transform: translateY(3px);
+  border-bottom-width: 2px;
+}
+
+/* ─── Bottom Navigation Bar (Matches Image 1 & 2) ─── */
+.dash-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: rgba(18, 20, 26, 0.98);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-glass);
+  max-width: 520px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 60;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+}
+
+.dash-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.35rem 0;
+  transition: all 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dash-nav-icon {
+  font-size: 1.25rem;
+  transition: transform 0.15s ease;
+}
+
+.dash-nav-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.dash-nav-item.active {
+  color: var(--accent);
+}
+
+.dash-nav-item.active .dash-nav-icon {
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 6px rgba(124, 182, 225, 0.6));
+}
+
+.dash-nav-item:hover:not(.active) {
+  color: var(--text-primary);
 }

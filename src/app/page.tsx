@@ -1,11 +1,18 @@
 'use client';
 export const dynamic = 'force-dynamic';
-import { useState, useEffect, useSyncExternalStore } from 'react';
+import { useState, useEffect } from 'react';
 import AuthModal from '@/components/AuthModal';
 import ProfileModal from '@/components/ProfileModal';
 import AIGame from '@/components/AIGame';
 import OnlineGame from '@/components/OnlineGame';
 import Leaderboard from '@/components/Leaderboard';
+import FriendsModal from '@/components/FriendsModal';
+import PuzzleModal from '@/components/PuzzleModal';
+import LearnModal from '@/components/LearnModal';
+import GameModeModal from '@/components/GameModeModal';
+import MatchReviewModal from '@/components/MatchReviewModal';
+import { getFriends, type Friend } from '@/lib/friends';
+import { getMatchHistory, saveMatchRecord, type MatchRecord } from '@/lib/gameHistory';
 import {
   onAuthChange, getProfileById, logout,
   updateStats, userWithTier, getTier,
@@ -13,12 +20,10 @@ import {
 } from '@/lib/api';
 
 type Screen = 'home' | 'ai' | 'online';
-
-const emptySubscribe = () => () => {};
+type NavTab = 'home' | 'puzzles' | 'learn' | 'watch' | 'more';
 
 export default function HomePage() {
   const [screen, setScreen] = useState<Screen>('home');
-  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [user, setUser] = useState<any>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -28,12 +33,31 @@ export default function HomePage() {
     }
     return null;
   });
+
+  // Modal visibility states
   const [showAuth, setShowAuth] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showFriends, setShowFriends] = useState(false);
+  const [showPuzzles, setShowPuzzles] = useState(false);
+  const [showLearn, setShowLearn] = useState(false);
+  const [showGameMode, setShowGameMode] = useState(false);
+  const [selectedReview, setSelectedReview] = useState<MatchRecord | null>(null);
+
+  // App state
   const [pendingMode, setPendingMode] = useState<Screen | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<NavTab>('home');
+
+  // Friends & History data states with lazy initializers
+  const [friends, setFriends] = useState<Friend[]>(() => {
+    if (typeof window !== 'undefined') return getFriends();
+    return [];
+  });
+  const [history, setHistory] = useState<MatchRecord[]>(() => {
+    if (typeof window !== 'undefined') return getMatchHistory();
+    return [];
+  });
 
   // Listen to Firebase auth state
   useEffect(() => {
@@ -62,7 +86,6 @@ export default function HomePage() {
         setUser(null);
         localStorage.removeItem('chess_user_session');
       }
-      setAuthLoading(false);
     });
     return unsub;
   }, []);
@@ -95,6 +118,25 @@ export default function HomePage() {
   }
 
   async function handleGameEnd(result: 'win' | 'loss' | 'draw', movesCount: number = 0) {
+    let delta = 0;
+    if (result === 'win') {
+      delta = movesCount < 10 ? 40 : movesCount < 30 ? 30 : 25;
+    } else if (result === 'loss') {
+      delta = movesCount < 6 ? -10 : -15;
+    }
+
+    // Persist real game to Match History
+    saveMatchRecord({
+      opponent: screen === 'ai' ? 'Adaptive AI' : 'Online Rival',
+      opponentType: screen === 'ai' ? 'ai' : 'player',
+      opponentRating: screen === 'ai' ? 1200 : (user?.rating || 400),
+      result,
+      deltaScore: delta,
+      movesCount,
+      gameType: screen === 'ai' ? 'ai' : 'rapid',
+    });
+    setHistory(getMatchHistory());
+
     if (user?.uid) {
       try {
         const { deltaScore } = await updateStats(user.uid, result, movesCount);
@@ -107,139 +149,38 @@ export default function HomePage() {
         else showToast(`Match lost (${deltaScore} pts). Keep practicing!`);
       } catch {}
     }
-    // Note: Do NOT automatically navigate away. Keep user in game review mode so they can analyze their moves.
   }
 
-  const tier = user ? getTier(user.wins) : null;
+  function handleChallengeFriend(friend: Friend) {
+    showToast(`⚔️ Challenging ${friend.username}… Launching arena!`);
+    handlePlayMode('online');
+  }
+
+  function handleNavClick(tab: NavTab) {
+    setActiveTab(tab);
+    if (tab === 'home') {
+      setScreen('home');
+    } else if (tab === 'puzzles') {
+      setShowPuzzles(true);
+    } else if (tab === 'learn') {
+      setShowLearn(true);
+    } else if (tab === 'watch') {
+      setShowLeaderboard(true);
+    } else if (tab === 'more') {
+      if (user) setShowProfile(true);
+      else setShowAuth(true);
+    }
+  }
+
+  const rating = user?.rating ?? 301;
+  const tier = user ? getTier(rating) : { name: 'Pawn', emoji: '♙' };
 
   return (
     <div className={`app-layout ${screen !== 'home' ? 'in-game-layout' : ''}`}>
-      {/* Header - Only shown on Home screen so active game gets full-screen native mobile app feel */}
-      {screen === 'home' && (
-        <header className="app-header">
-          <div className="app-logo">
-            <span className="app-logo-icon">♟</span>
-            <span>ChessAI</span>
-          </div>
-          <nav className="app-header-nav">
-            <button className="btn btn-secondary nav-leaderboard-btn" onClick={() => setShowLeaderboard(true)}>
-              <span>🏆</span>
-              <span className="nav-btn-text">Rankings</span>
-            </button>
-
-            {!mounted || authLoading ? (
-              <div style={{ width: 80, height: 36, background: 'rgba(255,255,255,0.05)', borderRadius: 10 }} />
-            ) : user ? (
-              <button
-                className="btn btn-secondary nav-profile-pill"
-                onClick={() => setShowProfile(true)}
-                title="View & Edit Profile"
-              >
-                <span style={{ fontSize: '1.1rem' }}>👤</span>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 800, lineHeight: 1.1 }}>
-                    {user.username}
-                  </div>
-                  <div style={{ fontSize: '0.66rem', color: tier?.color, fontWeight: 600, marginTop: 2 }}>
-                    ⭐ {user.rating ?? Math.min(1000, (user.wins || 0) * 30)} · {tier?.name}
-                  </div>
-                </div>
-              </button>
-            ) : (
-              <button className="btn btn-primary" onClick={() => setShowAuth(true)}>Sign In</button>
-            )}
-          </nav>
-        </header>
-      )}
-
-      {/* Toast */}
+      {/* Toast Notification */}
       {notification && <div className="notification-toast">{notification}</div>}
 
-      {/* Screens */}
-      {screen === 'home' && (
-        <main>
-          {/* Hero */}
-          <section className="hero-section">
-            <div className="hero-content">
-              <h1 className="hero-title">
-                Chess.<br/>
-                <span className="hero-gradient">Reimagined.</span>
-              </h1>
-              <p className="hero-subtitle">
-                Challenge a powerful AI that adapts to your rank — or match instantly online in real-time.
-                No backend needed.
-              </p>
-              <div className="hero-buttons">
-                <button className="btn btn-primary hero-btn" onClick={() => handlePlayMode('ai')}>
-                  🤖 Play vs AI
-                </button>
-                <button className="btn btn-secondary hero-btn" onClick={() => handlePlayMode('online')}>
-                  ⚡ Quick Online Match
-                </button>
-              </div>
-            </div>
-
-            {/* Decorative board */}
-            <div className="hero-board">
-              <div className="hero-board-inner">
-                {Array.from({ length: 64 }, (_, i) => {
-                  const r = Math.floor(i / 8), f = i % 8;
-                  const isLight = (r + f) % 2 === 0;
-                  const pieces: Record<number, string> = {
-                    0:'♜',1:'♞',2:'♝',3:'♛',4:'♚',5:'♝',6:'♞',7:'♜',
-                    8:'♟',9:'♟',10:'♟',11:'♟',12:'♟',13:'♟',14:'♟',15:'♟',
-                    48:'♙',49:'♙',50:'♙',51:'♙',52:'♙',53:'♙',54:'♙',55:'♙',
-                    56:'♖',57:'♘',58:'♗',59:'♕',60:'♔',61:'♗',62:'♘',63:'♖',
-                  };
-                  return (
-                    <div key={i} className={`mini-square ${isLight ? 'light' : 'dark'}`}>
-                      {pieces[i] && <span className={`mini-piece ${i < 32 ? 'black' : 'white'}`}>{pieces[i]}</span>}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-
-          {/* Features */}
-          <section className="features-section">
-            {[
-              { icon: '🤖', title: 'Adaptive AI', desc: 'AI depth grows with your rank — from Pawn (easy) to King (brutal). All runs in your browser.' },
-              { icon: '⚡', title: 'Automated Quick Match', desc: 'Find online players automatically near your rank. Peer-to-peer WebRTC gaming.' },
-              { icon: '🏆', title: 'Unique Ratings (0–1000)', desc: 'Compressed database unique usernames and real-time rating points leaderboard tracking.' },
-            ].map(f => (
-              <div key={f.title} className="feature-card glass-card">
-                <div className="feature-icon">{f.icon}</div>
-                <h3 className="feature-title">{f.title}</h3>
-                <p className="feature-desc">{f.desc}</p>
-              </div>
-            ))}
-          </section>
-
-          {/* Rank tiers */}
-          <section className="tiers-section">
-            <h2 className="section-title">Rating & Rank Progression (0 – 1000+)</h2>
-            <div className="tiers-grid">
-              {[
-                { emoji:'♙', name:'Pawn',   points:'0–150 pts',    depth:2, color:'#94a3b8' },
-                { emoji:'♘', name:'Knight', points:'151–350 pts',  depth:3, color:'#10b981' },
-                { emoji:'♗', name:'Bishop', points:'351–550 pts',  depth:3, color:'#3b82f6' },
-                { emoji:'♖', name:'Rook',   points:'551–750 pts',  depth:4, color:'#8b5cf6' },
-                { emoji:'♛', name:'Queen',  points:'751–900 pts',  depth:4, color:'#f59e0b' },
-                { emoji:'♚', name:'King',   points:'901–1000+ pts', depth:5, color:'#f43f5e' },
-              ].map(t => (
-                <div key={t.name} className="tier-card glass-card" style={{ borderColor: `${t.color}33` }}>
-                  <span className="tier-emoji" style={{ color: t.color }}>{t.emoji}</span>
-                  <span className="tier-name"  style={{ color: t.color }}>{t.name}</span>
-                  <span className="tier-wins" style={{ fontWeight: 700 }}>{t.points}</span>
-                  <span className="tier-depth">AI Depth {t.depth}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        </main>
-      )}
-
+      {/* In-Game Screens */}
       {screen === 'ai' && user && (
         <AIGame user={user} onGameEnd={handleGameEnd} onBack={() => setScreen('home')} />
       )}
@@ -248,7 +189,297 @@ export default function HomePage() {
         <OnlineGame user={user} onGameEnd={handleGameEnd} onBack={() => setScreen('home')} />
       )}
 
+      {/* Main Home Screen Dashboard (Chess.com Mobile Native Layout) */}
+      {screen === 'home' && (
+        <div className="chess-app-shell">
+          {/* Top Bar Header */}
+          <header className="dash-top-bar">
+            {/* Left: User Avatar + Level Pill */}
+            <div
+              className="dash-user-pill"
+              onClick={() => {
+                if (user) setShowProfile(true);
+                else setShowAuth(true);
+              }}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="dash-user-avatar" suppressHydrationWarning>
+                {tier.emoji}
+              </div>
+              <span className="dash-user-name" suppressHydrationWarning>
+                {user ? user.username : 'Sign In'}
+              </span>
+            </div>
+
+            {/* Right: Diamonds Counter & Friends Icon */}
+            <div className="dash-top-right">
+              <div
+                className="dash-stat-badge"
+                onClick={() => setShowLeaderboard(true)}
+                title="Your Rating Points"
+                suppressHydrationWarning
+              >
+                <span>💎</span>
+                <span suppressHydrationWarning>{rating}</span>
+              </div>
+
+              <button
+                className="dash-icon-btn"
+                onClick={() => setShowFriends(true)}
+                title="Friends"
+                aria-label="Friends"
+                suppressHydrationWarning
+              >
+                <span>👥</span>
+                {friends.length > 0 && (
+                  <span className="dash-count-bubble" suppressHydrationWarning>{friends.length}</span>
+                )}
+              </button>
+            </div>
+          </header>
+
+          <main style={{ flex: 1 }}>
+            {/* 1. Featured / Puzzles Banner (Matches Image 1) */}
+            <section className="dash-featured-banner">
+              <div>
+                <div className="dash-featured-title">
+                  <span>🧩</span>
+                  <span>Puzzles</span>
+                </div>
+                <div className="dash-featured-progress">
+                  <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                    493
+                  </span>
+                  <div className="dash-progress-track">
+                    <div className="dash-progress-fill" />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                className="dash-featured-btn"
+                onClick={() => setShowPuzzles(true)}
+              >
+                Solve!
+              </button>
+            </section>
+
+            {/* 2. Stats Section (Matches Image 1) */}
+            <section className="dash-section">
+              <div className="dash-section-header">
+                <span className="dash-section-title">Stats</span>
+                <button className="dash-view-all" onClick={() => setShowLeaderboard(true)}>
+                  View All
+                </button>
+              </div>
+
+              <div className="dash-horizontal-scroll">
+                {/* Rapid */}
+                <div className="dash-stat-card" onClick={() => handlePlayMode('online')}>
+                  <div className="dash-stat-icon">⏱️</div>
+                  <div className="dash-stat-val">{rating}</div>
+                  <div className="dash-stat-lbl">Rapid</div>
+                </div>
+
+                {/* Bullet */}
+                <div className="dash-stat-card" onClick={() => handlePlayMode('online')}>
+                  <div className="dash-stat-icon">🚀</div>
+                  <div className="dash-stat-val">Bullet</div>
+                  <div className="dash-stat-lbl">Play 4 Games</div>
+                </div>
+
+                {/* Blitz */}
+                <div className="dash-stat-card" onClick={() => handlePlayMode('online')}>
+                  <div className="dash-stat-icon">⚡</div>
+                  <div className="dash-stat-val">Blitz</div>
+                  <div className="dash-stat-lbl">Play 5 Games</div>
+                </div>
+
+                {/* AI Games */}
+                <div className="dash-stat-card" onClick={() => handlePlayMode('ai')}>
+                  <div className="dash-stat-icon">🤖</div>
+                  <div className="dash-stat-val">vs AI</div>
+                  <div className="dash-stat-lbl">{user?.gamesPlayed ?? 0} Played</div>
+                </div>
+              </div>
+            </section>
+
+            {/* 3. Friends Section (Matches Image 1 & 2) */}
+            <section className="dash-section">
+              <div className="dash-section-header">
+                <div className="dash-section-title">
+                  <span>Friends</span>
+                  <span className="dash-section-count">{friends.length}</span>
+                </div>
+                <button className="dash-view-all" onClick={() => setShowFriends(true)}>
+                  View All
+                </button>
+              </div>
+
+              <div className="dash-horizontal-scroll">
+                {friends.map((friend) => (
+                  <div key={friend.id} className="dash-friend-card">
+                    <div className="dash-friend-avatar-wrap">
+                      <div className="dash-friend-avatar">♟</div>
+                      {friend.status.toLowerCase().includes('online') && (
+                        <div className="dash-online-dot" />
+                      )}
+                    </div>
+                    <div className="dash-friend-name">
+                      {friend.username} {friend.country}
+                    </div>
+                    <div className="dash-friend-sub">
+                      {friend.status}
+                    </div>
+                    <button
+                      className="dash-friend-btn"
+                      onClick={() => handleChallengeFriend(friend)}
+                    >
+                      Challenge
+                    </button>
+                  </div>
+                ))}
+
+                {/* Find Friends Card */}
+                <div
+                  className="dash-find-friends-card"
+                  onClick={() => setShowFriends(true)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: '50%',
+                    background: 'rgba(124, 182, 225, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.4rem',
+                    marginBottom: '0.4rem',
+                  }}>
+                    🔍
+                  </div>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--accent-light)' }}>
+                    Find Friends
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            {/* 4. Game History Section (Matches Image 2) */}
+            <section className="dash-section">
+              <div className="dash-section-header">
+                <div className="dash-section-title">
+                  <span>Game History</span>
+                  <span className="dash-section-count">{history.length}</span>
+                </div>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  Accuracy
+                </span>
+              </div>
+
+              <div className="dash-history-list">
+                {history.slice(0, 6).map((match) => (
+                  <div key={match.id} className="dash-history-item">
+                    <div className="dash-history-left">
+                      <div className="dash-history-type-icon">
+                        {match.opponentType === 'ai' ? '🤖' : '⏱️'}
+                      </div>
+                      <div className="dash-history-opp-avatar">
+                        ♟
+                      </div>
+                      <div>
+                        <div className="dash-history-opp-name">
+                          {match.opponent} <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>({match.opponentRating})</span>
+                        </div>
+                        <div className="dash-history-opp-sub">
+                          {match.date} · {match.movesCount} moves
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="dash-history-right">
+                      <div className={`dash-outcome-badge ${match.result}`}>
+                        {match.result === 'win' ? '+' : match.result === 'loss' ? '−' : '='}
+                      </div>
+
+                      {/* The Signature Star Review Button from Image 2 */}
+                      <button
+                        className="dash-review-btn"
+                        onClick={() => setSelectedReview(match)}
+                        title="Review Match Analysis"
+                        aria-label="Review Match"
+                      >
+                        ⭐
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </main>
+
+          {/* 5. The Big Floating "Play" Button (Matches Image 1 & 2) */}
+          <div className="dash-floating-play-container">
+            <button
+              className="dash-big-play-btn"
+              onClick={() => setShowGameMode(true)}
+            >
+              <span>♟</span>
+              <span>Play</span>
+            </button>
+          </div>
+
+          {/* 6. Native Bottom Navigation Bar (Matches Image 1 & 2) */}
+          <nav className="dash-bottom-nav">
+            <button
+              className={`dash-nav-item ${activeTab === 'home' ? 'active' : ''}`}
+              onClick={() => handleNavClick('home')}
+            >
+              <span className="dash-nav-icon">♟</span>
+              <span className="dash-nav-label">Home</span>
+            </button>
+
+            <button
+              className={`dash-nav-item ${activeTab === 'puzzles' ? 'active' : ''}`}
+              onClick={() => handleNavClick('puzzles')}
+            >
+              <span className="dash-nav-icon">🧩</span>
+              <span className="dash-nav-label">Puzzles</span>
+            </button>
+
+            <button
+              className={`dash-nav-item ${activeTab === 'learn' ? 'active' : ''}`}
+              onClick={() => handleNavClick('learn')}
+            >
+              <span className="dash-nav-icon">🎓</span>
+              <span className="dash-nav-label">Learn</span>
+            </button>
+
+            <button
+              className={`dash-nav-item ${activeTab === 'watch' ? 'active' : ''}`}
+              onClick={() => handleNavClick('watch')}
+            >
+              <span className="dash-nav-icon">🏆</span>
+              <span className="dash-nav-label">Watch</span>
+            </button>
+
+            <button
+              className={`dash-nav-item ${activeTab === 'more' ? 'active' : ''}`}
+              onClick={() => handleNavClick('more')}
+            >
+              <span className="dash-nav-icon">☰</span>
+              <span className="dash-nav-label">More</span>
+            </button>
+          </nav>
+        </div>
+      )}
+
+      {/* Modals */}
       {showAuth && <AuthModal onSuccess={handleAuthSuccess} />}
+
       {showProfile && user && (
         <ProfileModal
           user={user}
@@ -262,7 +493,60 @@ export default function HomePage() {
           onClose={() => setShowProfile(false)}
         />
       )}
-      {showLeaderboard && <Leaderboard onClose={() => setShowLeaderboard(false)} />}
+
+      {showLeaderboard && (
+        <Leaderboard onClose={() => setShowLeaderboard(false)} />
+      )}
+
+      {showFriends && (
+        <FriendsModal
+          onClose={() => {
+            setShowFriends(false);
+            setFriends(getFriends());
+          }}
+          onChallenge={(friend) => {
+            setShowFriends(false);
+            handleChallengeFriend(friend);
+          }}
+        />
+      )}
+
+      {showPuzzles && (
+        <PuzzleModal
+          onClose={() => setShowPuzzles(false)}
+          onPuzzleSolved={(bonus) => {
+            showToast(`🎉 +${bonus} Rating Points earned!`);
+          }}
+        />
+      )}
+
+      {showLearn && (
+        <LearnModal onClose={() => setShowLearn(false)} />
+      )}
+
+      {showGameMode && (
+        <GameModeModal
+          onClose={() => setShowGameMode(false)}
+          onSelectMode={(mode) => {
+            setShowGameMode(false);
+            if (mode === 'ai') handlePlayMode('ai');
+            else if (mode === 'online') handlePlayMode('online');
+            else if (mode === 'friends') setShowFriends(true);
+            else if (mode === 'puzzles') setShowPuzzles(true);
+          }}
+        />
+      )}
+
+      {selectedReview && (
+        <MatchReviewModal
+          match={selectedReview}
+          onClose={() => setSelectedReview(null)}
+          onRematch={() => {
+            setSelectedReview(null);
+            handlePlayMode(selectedReview.opponentType === 'ai' ? 'ai' : 'online');
+          }}
+        />
+      )}
     </div>
   );
 }
