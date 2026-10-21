@@ -628,8 +628,23 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
 
   // ── Active P2P Game ────────────────────────────────────────────────────────
   return (
-    <div className="app-content" data-theme={theme}>
+    <div className="game-screen-wrapper" data-theme={theme}>
       <div className="game-board-section">
+        {/* Mobile App Native Header */}
+        <div className="mobile-game-header">
+          <button className="mobile-back-btn" onClick={onBack} title="Exit to Home">
+            ‹
+          </button>
+          <div className="mobile-game-logo">
+            <span className="logo-piece-icon">♟</span>
+            <span>ChessAI</span>
+          </div>
+          <div className="mobile-game-badge">
+            <span>📶</span>
+            <span>Online</span>
+          </div>
+        </div>
+
         {/* Top Move Ticker Bar */}
         <TopMoveTicker
           moveHistory={moveHistory}
@@ -647,7 +662,8 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            width: 'min(540px, calc(100vw - 1rem))',
+            width: '100%',
+            maxWidth: 'var(--board-size)',
             color: '#fef08a'
           }}>
             <span style={{ fontWeight: 700, fontSize: '0.88rem' }}>🤝 Opponent offered a draw</span>
@@ -660,31 +676,28 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
 
         {/* Opponent Bar */}
         <div className="player-bar opponent-bar">
-          <div className="player-bar-info">
-            <div className="player-bar-name">👤 {opponentName} ({playerColor === 'w' ? '⬛ Black' : '⬜ White'})</div>
-            <div className="player-bar-rank" style={{ color: 'var(--accent-light)' }}>Online Opponent</div>
+          <div className="player-bar-left">
+            <div className="player-avatar-box">
+              <span>♟</span>
+            </div>
+            <div className="player-bar-info">
+              <div className="player-bar-name">
+                {opponentName} <span className="player-sub-badge">({playerColor === 'w' ? '⬛ Black' : '⬜ White'})</span>
+              </div>
+              <div className="player-bar-rank" style={{ color: 'var(--accent-light)' }}>
+                Online Opponent
+              </div>
+            </div>
           </div>
           <div className={`chess-clock ${!isMyTurn && !gameOver ? 'active' : ''} ${oppTime < 30 ? 'low-time' : ''}`}>
-            ⏱️ {formatTime(oppTime)}
+            {!isMyTurn && !gameOver && <span className="clock-active-dot">🕒</span>}
+            <span>{formatTime(oppTime)}</span>
           </div>
         </div>
 
         {/* Game Finished Review Banner */}
         {gameOver && reviewMode && (
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95))',
-            border: '1px solid rgba(124, 182, 225, 0.4)',
-            borderRadius: 12,
-            padding: '0.55rem 0.85rem',
-            margin: '0.2rem 0',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: '0.82rem',
-            color: 'var(--text-primary)',
-            width: 'min(560px, calc(100vw - 2rem), calc(100vh - 240px))',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
-          }}>
+          <div className="game-review-banner">
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <span style={{ fontSize: '1.15rem' }}>
                 {gameOver === 'win' ? '🏆' : gameOver === 'loss' ? '😔' : '🤝'}
@@ -719,29 +732,11 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
           </div>
         )}
 
-        {/* Live Replay Banner Warning when game is still in progress */}
+        {/* Move History Replay Position Indicator (Without Live button) */}
         {!gameOver && isReplaying && (
-          <div style={{
-            background: 'rgba(59, 130, 246, 0.15)',
-            border: '1px solid rgba(59, 130, 246, 0.4)',
-            borderRadius: 10,
-            padding: '0.4rem 0.85rem',
-            margin: '0.2rem 0',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: '0.82rem',
-            color: '#93c5fd',
-            width: 'min(560px, calc(100vw - 2rem), calc(100vh - 240px))'
-          }}>
-            <span>🔍 Past Move {viewIndex} / {moveHistory.length}</span>
-            <button
-              className="btn btn-secondary"
-              onClick={() => setViewIndex(null)}
-              style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
-            >
-              ▶ Resume Live
-            </button>
+          <div className="move-replay-status-bar">
+            <span>🔍 Viewing Move {viewIndex} of {moveHistory.length}</span>
+            <span style={{ fontSize: '0.72rem', color: '#93c5fd' }}>Use › to step forward</span>
           </div>
         )}
 
@@ -757,20 +752,26 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
 
         {/* User Bar */}
         <div className="player-bar user-bar">
-          <div className="player-bar-info">
-            <div className="player-bar-name">
-              👤 {user?.username} <span style={{ color: 'var(--accent-light)', fontSize: '0.75rem' }}>{user?.userTag}</span> ({playerColor === 'w' ? '⬜ White' : '⬛ Black'})
+          <div className="player-bar-left">
+            <div className="player-avatar-box">
+              <span>👤</span>
             </div>
-            <div className="player-bar-rank" style={{ color: tier.color }}>
-              {tier.emoji} {tier.name} · {user?.wins ?? 0}W {user?.losses ?? 0}L
+            <div className="player-bar-info">
+              <div className="player-bar-name">
+                {user?.username} <span className="player-sub-badge">({user?.rating ?? Math.min(1000, (user?.wins || 0) * 30)})</span> {tier.emoji}
+              </div>
+              <div className="player-bar-rank" style={{ color: tier.color }}>
+                {playerColor === 'w' ? '⬜ White' : '⬛ Black'} · {user?.wins ?? 0}W {user?.losses ?? 0}L
+              </div>
             </div>
           </div>
           <div className={`chess-clock ${isMyTurn && !gameOver ? 'active' : ''} ${myTime < 30 ? 'low-time' : ''}`}>
-            ⏱️ {formatTime(myTime)}
+            {isMyTurn && !gameOver && <span className="clock-active-dot">🕒</span>}
+            <span>{formatTime(myTime)}</span>
           </div>
         </div>
 
-        {/* Bottom Mobile & Desktop App Action Bar */}
+        {/* Bottom Mobile & Desktop App Action Bar: STRICTLY Options, Theme, Previous, Next */}
         <div className="bottom-app-bar">
           <button className="bottom-action-btn" onClick={() => setShowOptionsMenu(true)} title="Game Options">
             <span className="bottom-btn-icon">⚙️</span>
@@ -782,39 +783,21 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
           </button>
           <button
             className="bottom-action-btn"
-            onClick={() => stepToMove(0)}
-            disabled={moveHistory.length === 0 || activeMoveIndex === 0}
-            title="Start of Game"
-          >
-            <span className="bottom-btn-icon">⏮️</span>
-            <span>Start</span>
-          </button>
-          <button
-            className="bottom-action-btn"
             onClick={() => stepToMove(activeMoveIndex - 1)}
             disabled={moveHistory.length === 0 || activeMoveIndex === 0}
-            title="Step Back"
+            title="Previous Move"
           >
-            <span className="bottom-btn-icon">◀</span>
-            <span>Back</span>
+            <span className="bottom-btn-icon">‹</span>
+            <span>Previous</span>
           </button>
           <button
             className="bottom-action-btn"
             onClick={() => stepToMove(activeMoveIndex + 1)}
             disabled={moveHistory.length === 0 || activeMoveIndex >= moveHistory.length}
-            title="Step Forward"
+            title="Next Move"
           >
-            <span className="bottom-btn-icon">▶</span>
-            <span>Forward</span>
-          </button>
-          <button
-            className="bottom-action-btn"
-            onClick={() => setViewIndex(null)}
-            disabled={viewIndex === null}
-            title="Final Move"
-          >
-            <span className="bottom-btn-icon">⏭️</span>
-            <span>End</span>
+            <span className="bottom-btn-icon">›</span>
+            <span>Next</span>
           </button>
         </div>
       </div>

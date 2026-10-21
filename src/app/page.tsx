@@ -1,6 +1,6 @@
 'use client';
 export const dynamic = 'force-dynamic';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
 import AuthModal from '@/components/AuthModal';
 import ProfileModal from '@/components/ProfileModal';
 import AIGame from '@/components/AIGame';
@@ -14,8 +14,11 @@ import {
 
 type Screen = 'home' | 'ai' | 'online';
 
+const emptySubscribe = () => () => {};
+
 export default function HomePage() {
   const [screen, setScreen] = useState<Screen>('home');
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [user, setUser] = useState<any>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -30,14 +33,7 @@ export default function HomePage() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [pendingMode, setPendingMode] = useState<Screen | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
-  const [authLoading, setAuthLoading] = useState(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        if (localStorage.getItem('chess_user_session')) return false;
-      } catch {}
-    }
-    return true;
-  });
+  const [authLoading, setAuthLoading] = useState(true);
 
   // Listen to Firebase auth state
   useEffect(() => {
@@ -117,43 +113,49 @@ export default function HomePage() {
   const tier = user ? getTier(user.wins) : null;
 
   return (
-    <div className="app-layout">
-      {/* Header */}
-      <header className="app-header">
-        <div className="app-logo">
-          <span className="app-logo-icon">♟</span>
-          ChessAI
-        </div>
-        <nav style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <button className="btn btn-secondary" onClick={() => setShowLeaderboard(true)}>🏆 Leaderboard</button>
+    <div className={`app-layout ${screen !== 'home' ? 'in-game-layout' : ''}`}>
+      {/* Header - Only shown on Home screen so active game gets full-screen native mobile app feel */}
+      {screen === 'home' && (
+        <header className="app-header">
+          <div className="app-logo">
+            <span className="app-logo-icon">♟</span>
+            <span>ChessAI</span>
+          </div>
+          <nav className="app-header-nav">
+            <button className="btn btn-secondary nav-leaderboard-btn" onClick={() => setShowLeaderboard(true)}>
+              <span>🏆</span>
+              <span className="nav-btn-text">Rankings</span>
+            </button>
 
-          {authLoading ? (
-            <div style={{ width: 80, height: 36, background: 'rgba(255,255,255,0.05)', borderRadius: 10 }} />
-          ) : user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <button
-                className="btn btn-secondary"
-                onClick={() => setShowProfile(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.75rem' }}
-                title="View & Edit Profile"
-              >
-                <span style={{ fontSize: '1.1rem' }}>👤</span>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 800, lineHeight: 1.1 }}>
-                    {user.username}
+            {!mounted || authLoading ? (
+              <div style={{ width: 80, height: 36, background: 'rgba(255,255,255,0.05)', borderRadius: 10 }} />
+            ) : user ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <button
+                  className="btn btn-secondary nav-profile-pill"
+                  onClick={() => setShowProfile(true)}
+                  title="View & Edit Profile"
+                >
+                  <span style={{ fontSize: '1.1rem' }}>👤</span>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 800, lineHeight: 1.1 }}>
+                      {user.username}
+                    </div>
+                    <div style={{ fontSize: '0.66rem', color: tier?.color, fontWeight: 600, marginTop: 2 }}>
+                      ⭐ {user.rating ?? Math.min(1000, (user.wins || 0) * 30)} · {tier?.name}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.68rem', color: tier?.color, fontWeight: 600, marginTop: 2 }}>
-                    ⭐ {user.rating ?? Math.min(1000, (user.wins || 0) * 30)} pts · {tier?.emoji} {tier?.name}
-                  </div>
-                </div>
-              </button>
-              <button className="btn btn-secondary" onClick={handleLogout} style={{ fontSize: '0.78rem' }}>Sign Out</button>
-            </div>
-          ) : (
-            <button className="btn btn-primary" onClick={() => setShowAuth(true)}>Sign In</button>
-          )}
-        </nav>
-      </header>
+                </button>
+                <button className="btn btn-secondary nav-signout-btn" onClick={handleLogout} title="Sign Out">
+                  🚪
+                </button>
+              </div>
+            ) : (
+              <button className="btn btn-primary" onClick={() => setShowAuth(true)}>Sign In</button>
+            )}
+          </nav>
+        </header>
+      )}
 
       {/* Toast */}
       {notification && <div className="notification-toast">{notification}</div>}
