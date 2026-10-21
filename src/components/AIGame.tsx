@@ -7,6 +7,7 @@ import ThemeSelector, { type BoardTheme } from '@/components/ThemeSelector';
 import GameOptionsMenu from '@/components/GameOptionsMenu';
 import { getAIMove } from '@/lib/chessAI';
 import { getTier } from '@/lib/api';
+import { stripEnPassantFen, clearEnPassant, createCleanChess } from '@/lib/chessRules';
 
 interface Props {
   user: any;
@@ -17,8 +18,8 @@ interface Props {
 const INITIAL_TIME = 600; // 10 minutes in seconds
 
 export default function AIGame({ user, onGameEnd, onBack }: Props) {
-  const chessRef = useRef(new Chess());
-  const [fen, setFen] = useState(new Chess().fen());
+  const chessRef = useRef<Chess>(createCleanChess());
+  const [fen, setFen] = useState(() => createCleanChess().fen());
   const [playerColor] = useState<'w' | 'b'>(() => Math.random() < 0.5 ? 'w' : 'b');
   const [thinking, setThinking] = useState(false);
   const [status, setStatus] = useState('');
@@ -153,11 +154,13 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
 
     const onMoveCalculated = (move: any) => {
       if (move) {
+        clearEnPassant(chess);
         chess.move(move);
+        clearEnPassant(chess);
         const history = chess.history({ verbose: true });
         setLastMove({ from: move.from, to: move.to });
         setMoveHistory(history);
-        setFen(chess.fen());
+        setFen(stripEnPassantFen(chess.fen()));
         setViewIndex(null); // Return to live move when AI plays
         updateStatus(chess);
       }
@@ -169,13 +172,15 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
         if (e.data?.success && e.data?.move) {
           onMoveCalculated(e.data.move);
         } else {
+          clearEnPassant(chess);
           const fallback = getAIMove(chess, aiDepth);
           onMoveCalculated(fallback);
         }
       };
-      workerRef.current.postMessage({ fen: chess.fen(), depth: aiDepth });
+      workerRef.current.postMessage({ fen: stripEnPassantFen(chess.fen()), depth: aiDepth });
     } else {
       setTimeout(() => {
+        clearEnPassant(chess);
         const move = getAIMove(chess, aiDepth);
         onMoveCalculated(move);
       }, 50);
@@ -202,12 +207,14 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
 
   const handlePlayerMove = useCallback((move: any) => {
     const chess = chessRef.current;
+    clearEnPassant(chess);
     const executed = chess.move({ from: move.from, to: move.to, promotion: move.promotion });
     if (executed) {
+      clearEnPassant(chess);
       const history = chess.history({ verbose: true });
       setLastMove({ from: executed.from, to: executed.to });
       setMoveHistory(history);
-      setFen(chess.fen());
+      setFen(stripEnPassantFen(chess.fen()));
       setViewIndex(null); // Jump to live state when playing move
       updateStatus(chess);
       if (!chess.isGameOver()) {
@@ -228,8 +235,9 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
 
   const handlePlayAgain = useCallback(() => {
     const newChess = new Chess();
+    clearEnPassant(newChess);
     chessRef.current = newChess;
-    setFen(newChess.fen());
+    setFen(stripEnPassantFen(newChess.fen()));
     setMoveHistory([]);
     setLastMove(null);
     setCheckSquare(null);
@@ -249,11 +257,14 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
   const historyCache = useMemo(() => {
     if (viewIndex === null) return { fens: [], moves: [] };
     const replay = new Chess();
-    const fens: string[] = [replay.fen()];
+    clearEnPassant(replay);
+    const fens: string[] = [stripEnPassantFen(replay.fen())];
     const moves: ({ from: string; to: string } | null)[] = [null];
     for (const m of moveHistory) {
+      clearEnPassant(replay);
       replay.move(m);
-      fens.push(replay.fen());
+      clearEnPassant(replay);
+      fens.push(stripEnPassantFen(replay.fen()));
       moves.push({ from: m.from, to: m.to });
     }
     return { fens, moves };

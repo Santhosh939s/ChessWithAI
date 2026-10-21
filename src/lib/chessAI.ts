@@ -1,5 +1,6 @@
 // ─── Chess AI: Minimax with Alpha-Beta Pruning ────────────────────────────────
 // Mirrors the original Python ChessAI class, extended with piece-square tables
+import { clearEnPassant } from './chessRules';
 
 export const PIECE_VALUES: Record<string, number> = {
   p: 100,
@@ -144,7 +145,7 @@ export function minimax(
   }
 
   const originalAlpha = alpha;
-  const moves = chess.moves({ verbose: true });
+  const moves = chess.moves({ verbose: true }).filter((m: any) => !m.flags.includes('e'));
   // Move ordering: best cached move first, then captures, then quiet moves
   moves.sort((a: any, b: any) => {
     if (cached?.bestMove && a.san === cached.bestMove.san) return -1;
@@ -197,6 +198,7 @@ export function getAIMove(chess: any, depth: number = 3): any {
   if (transpositionTable.size > 20000) {
     transpositionTable.clear();
   }
+  clearEnPassant(chess);
   const isBlack = chess.turn() === 'b';
   const [, move] = minimax(chess, depth, -Infinity, Infinity, !isBlack);
   return move;

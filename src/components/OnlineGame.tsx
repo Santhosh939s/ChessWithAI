@@ -6,6 +6,7 @@ import TopMoveTicker from '@/components/TopMoveTicker';
 import ThemeSelector, { type BoardTheme } from '@/components/ThemeSelector';
 import GameOptionsMenu from '@/components/GameOptionsMenu';
 import { enterMatchmakingQueue, leaveMatchmakingQueue, getTier } from '@/lib/api';
+import { stripEnPassantFen, clearEnPassant, createCleanChess } from '@/lib/chessRules';
 
 interface Props {
   user: any;
@@ -54,7 +55,7 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
   const [roomCode, setRoomCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [playerColor, setPlayerColor] = useState<'w' | 'b'>('w');
-  const [fen, setFen] = useState(new Chess().fen());
+  const [fen, setFen] = useState(() => createCleanChess().fen());
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
   const [checkSquare, setCheckSquare] = useState<string | null>(null);
   const [gameOver, setGameOver] = useState<string | null>(null);
@@ -96,7 +97,7 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
   const [whiteTime, setWhiteTime] = useState(INITIAL_TIME);
   const [blackTime, setBlackTime] = useState(INITIAL_TIME);
 
-  const chessRef = useRef(new Chess());
+  const chessRef = useRef<Chess>(createCleanChess());
   const peerRef = useRef<any>(null);
   const connRef = useRef<any>(null);
   const cancelMatchmakingRef = useRef<(() => void) | null>(null);
@@ -290,8 +291,10 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
     conn.on('open', () => {
       if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
       setPhase('playing');
-      chessRef.current = new Chess();
-      setFen(chessRef.current.fen());
+      const c = new Chess();
+      clearEnPassant(c);
+      chessRef.current = c;
+      setFen(stripEnPassantFen(c.fen()));
       setWhiteTime(INITIAL_TIME);
       setBlackTime(INITIAL_TIME);
       setViewIndex(null);
@@ -339,9 +342,11 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
 
       if (data.type === 'MOVE') {
         const chess = chessRef.current;
+        clearEnPassant(chess);
         const result = chess.move(data.move);
         if (result) {
-          setFen(chess.fen());
+          clearEnPassant(chess);
+          setFen(stripEnPassantFen(chess.fen()));
           setLastMove({ from: result.from, to: result.to });
           const history = chess.history({ verbose: true });
           setMoveHistory(history);
@@ -414,11 +419,13 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
 
   const handlePlayerMove = useCallback((move: any) => {
     const chess = chessRef.current;
+    clearEnPassant(chess);
     const executed = chess.move({ from: move.from, to: move.to, promotion: move.promotion });
     if (!executed) return;
 
+    clearEnPassant(chess);
     connRef.current?.send({ type: 'MOVE', move: { from: executed.from, to: executed.to, promotion: move.promotion } });
-    setFen(chess.fen());
+    setFen(stripEnPassantFen(chess.fen()));
     setLastMove({ from: executed.from, to: executed.to });
     const history = chess.history({ verbose: true });
     setMoveHistory(history);
@@ -469,11 +476,14 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
   const historyCache = useMemo(() => {
     if (viewIndex === null) return { fens: [], moves: [] };
     const replay = new Chess();
-    const fens: string[] = [replay.fen()];
+    clearEnPassant(replay);
+    const fens: string[] = [stripEnPassantFen(replay.fen())];
     const moves: ({ from: string; to: string } | null)[] = [null];
     for (const m of moveHistory) {
+      clearEnPassant(replay);
       replay.move(m);
-      fens.push(replay.fen());
+      clearEnPassant(replay);
+      fens.push(stripEnPassantFen(replay.fen()));
       moves.push({ from: m.from, to: m.to });
     }
     return { fens, moves };

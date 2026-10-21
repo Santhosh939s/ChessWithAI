@@ -3,6 +3,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { Chess, type Square } from 'chess.js';
 import ChessPiece from './ChessPiece';
 import PromotionModal from './PromotionModal';
+import { stripEnPassantFen, clearEnPassant } from '../lib/chessRules';
 
 const FILES = ['a','b','c','d','e','f','g','h'];
 const RANKS = ['8','7','6','5','4','3','2','1'];
@@ -17,16 +18,22 @@ interface Props {
 }
 
 function ChessBoard({ fen, playerColor, onMove, disabled = false, lastMove, checkSquare }: Props) {
-  const chess = useMemo(() => new Chess(fen ?? undefined), [fen]);
+  const sanitizedFen = useMemo(() => stripEnPassantFen(fen ?? ''), [fen]);
+  const chess = useMemo(() => {
+    const c = new Chess(sanitizedFen || undefined);
+    clearEnPassant(c);
+    return c;
+  }, [sanitizedFen]);
   const [selected, setSelected] = useState<string | null>(null);
   const [legalSquares, setLegalSquares] = useState<string[]>([]);
   const [legalCaptures, setLegalCaptures] = useState<string[]>([]);
   const [promotion, setPromotion] = useState<{ from: string; to: string } | null>(null);
 
   const computeLegal = useCallback((sq: string) => {
-    const moves = chess.moves({ square: sq as Square, verbose: true });
+    clearEnPassant(chess);
+    const moves = chess.moves({ square: sq as Square, verbose: true }).filter((m: any) => !m.flags.includes('e'));
     const targets = moves.map(m => m.to);
-    const captures = moves.filter(m => m.flags.includes('c') || m.flags.includes('e')).map(m => m.to);
+    const captures = moves.filter((m: any) => m.flags.includes('c') && !m.flags.includes('e')).map(m => m.to);
     setLegalSquares(targets);
     setLegalCaptures(captures);
   }, [chess]);
@@ -40,8 +47,10 @@ function ChessBoard({ fen, playerColor, onMove, disabled = false, lastMove, chec
     if (selected) {
       // Try to make a move
       if (legalSquares.includes(sq) || legalCaptures.includes(sq)) {
+        clearEnPassant(chess);
         // Check if promotion
-        const move = chess.moves({ verbose: true }).find(
+        const moves = chess.moves({ verbose: true }).filter((m: any) => !m.flags.includes('e'));
+        const move = moves.find(
           (m: any) => m.from === selected && m.to === sq
         );
         if (move && move.promotion !== undefined) {
@@ -51,6 +60,7 @@ function ChessBoard({ fen, playerColor, onMove, disabled = false, lastMove, chec
         // Execute move
         const result = chess.move({ from: selected, to: sq });
         if (result) {
+          clearEnPassant(chess);
           onMove?.(result);
           setSelected(null);
           setLegalSquares([]);
@@ -82,8 +92,12 @@ function ChessBoard({ fen, playerColor, onMove, disabled = false, lastMove, chec
 
   function handlePromotion(piece: string) {
     if (!promotion) return;
+    clearEnPassant(chess);
     const result = chess.move({ from: promotion.from, to: promotion.to, promotion: piece });
-    if (result) onMove?.(result);
+    if (result) {
+      clearEnPassant(chess);
+      onMove?.(result);
+    }
     setPromotion(null);
     setSelected(null);
     setLegalSquares([]);
