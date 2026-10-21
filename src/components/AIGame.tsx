@@ -197,7 +197,7 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameOver]);
 
-  function handlePlayerMove(move: any) {
+  const handlePlayerMove = useCallback((move: any) => {
     const chess = chessRef.current;
     const executed = chess.move({ from: move.from, to: move.to, promotion: move.promotion });
     if (executed) {
@@ -211,7 +211,7 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
         makeAIMove();
       }
     }
-  }
+  }, [makeAIMove, updateStatus]);
 
   function handleOfferDraw() {
     setStatus('Draw agreed — Peace!');

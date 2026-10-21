@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Chess, type Move } from 'chess.js';
 import ChessBoard from '@/components/ChessBoard';
 import TopMoveTicker from '@/components/TopMoveTicker';
@@ -44,6 +44,10 @@ const PEER_OPTIONS = {
     iceCandidatePoolSize: 10,
   },
 };
+
+function generateRoomCode(): string {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
 
 export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
   const [phase, setPhase] = useState<Phase>('menu');
@@ -99,6 +103,14 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
 
   const tier = getTier(user?.wins ?? 0);
 
+  const handleTimeout = useCallback((timedOutColor: 'w' | 'b') => {
+    const iMyTurn = timedOutColor === playerColor;
+    const result = iMyTurn ? 'loss' : 'win';
+    setGameOver(result);
+    setStatus(iMyTurn ? "Time's up! You lost on time." : "Opponent's time ran out — You win! 🏆");
+    onGameEnd(result, moveHistory.length);
+  }, [moveHistory.length, onGameEnd, playerColor]);
+
   // ── Clock Timer ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'playing' || gameOver) return;
@@ -127,16 +139,7 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
     }, 1000);
 
     return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, gameOver]);
-
-  function handleTimeout(timedOutColor: 'w' | 'b') {
-    const iMyTurn = timedOutColor === playerColor;
-    const result = iMyTurn ? 'loss' : 'win';
-    setGameOver(result);
-    setStatus(iMyTurn ? "Time's up! You lost on time." : "Opponent's time ran out — You win! 🏆");
-    onGameEnd(result, moveHistory.length);
-  }
+  }, [phase, gameOver, handleTimeout]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -239,7 +242,7 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
     setError('');
     setPhase('hosting');
     const Peer = await loadPeer();
-    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const code = generateRoomCode();
     const peer = new Peer(`chess-${code}`, PEER_OPTIONS);
     peerRef.current = peer;
 
@@ -390,7 +393,7 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
     });
   }
 
-  function updateCheck(chess: Chess) {
+  const updateCheck = useCallback((chess: Chess) => {
     if (chess.inCheck()) {
       const board = chess.board();
       for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
@@ -398,17 +401,17 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
         if (p && p.type === 'k' && p.color === chess.turn()) setCheckSquare(p.square);
       }
     } else setCheckSquare(null);
-  }
+  }, []);
 
-  function handleGameOver(chess: Chess, iMyMove: boolean) {
+  const handleGameOver = useCallback((chess: Chess, iMyMove: boolean) => {
     let result: 'win' | 'loss' | 'draw' = 'draw';
     if (chess.isCheckmate()) result = iMyMove ? 'win' : 'loss';
     setGameOver(result);
     setStatus(chess.isCheckmate() ? (iMyMove ? '🏆 You win by checkmate!' : '😔 Opponent wins by checkmate') : 'Draw!');
     onGameEnd(result, moveHistory.length);
-  }
+  }, [moveHistory.length, onGameEnd]);
 
-  function handlePlayerMove(move: any) {
+  const handlePlayerMove = useCallback((move: any) => {
     const chess = chessRef.current;
     const executed = chess.move({ from: move.from, to: move.to, promotion: move.promotion });
     if (!executed) return;
@@ -422,7 +425,7 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
     updateCheck(chess);
     if (chess.isGameOver()) handleGameOver(chess, true);
     else setStatus("Opponent's turn");
-  }
+  }, [handleGameOver, updateCheck]);
 
   function resign() {
     connRef.current?.send({ type: 'RESIGN' });

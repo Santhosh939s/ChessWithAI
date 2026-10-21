@@ -172,4 +172,15 @@ function ChessBoard({ fen, playerColor, onMove, disabled = false, lastMove, chec
   );
 }
 
-export default React.memo(ChessBoard);
+// Memoize ChessBoard with custom comparator: only re-render when actual board state changes.
+// Clocks ticking, parent timer updates, and unrelated parent state changes will NOT re-render the board.
+export default React.memo(ChessBoard, (prev, next) => {
+  return (
+    prev.fen === next.fen &&
+    prev.playerColor === next.playerColor &&
+    prev.disabled === next.disabled &&
+    prev.checkSquare === next.checkSquare &&
+    prev.lastMove?.from === next.lastMove?.from &&
+    prev.lastMove?.to === next.lastMove?.to
+  );
+});
