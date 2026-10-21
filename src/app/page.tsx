@@ -11,8 +11,8 @@ import PuzzleModal from '@/components/PuzzleModal';
 import LearnModal from '@/components/LearnModal';
 import GameModeModal from '@/components/GameModeModal';
 import MatchReviewModal from '@/components/MatchReviewModal';
-import { getFriends, type Friend } from '@/lib/friends';
-import { getMatchHistory, saveMatchRecord, type MatchRecord } from '@/lib/gameHistory';
+import { getRealFriends, getCachedFriends, type Friend } from '@/lib/friends';
+import { getRealMatchHistory, getCachedMatchHistory, saveRealMatchRecord, type MatchRecord } from '@/lib/gameHistory';
 import {
   onAuthChange, getProfileById, logout,
   updateStats, userWithTier, getTier,
@@ -49,13 +49,29 @@ export default function HomePage() {
   const [notification, setNotification] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<NavTab>('home');
 
-  // Friends & History data states with lazy initializers
+  // Real Friends & History data states (Strictly authentic data from Firebase)
   const [friends, setFriends] = useState<Friend[]>(() => {
-    if (typeof window !== 'undefined') return getFriends();
+    if (typeof window !== 'undefined') {
+      try {
+        const cachedUser = localStorage.getItem('chess_user_session');
+        if (cachedUser) {
+          const parsed = JSON.parse(cachedUser);
+          if (parsed?.uid) return getCachedFriends(parsed.uid);
+        }
+      } catch {}
+    }
     return [];
   });
   const [history, setHistory] = useState<MatchRecord[]>(() => {
-    if (typeof window !== 'undefined') return getMatchHistory();
+    if (typeof window !== 'undefined') {
+      try {
+        const cachedUser = localStorage.getItem('chess_user_session');
+        if (cachedUser) {
+          const parsed = JSON.parse(cachedUser);
+          if (parsed?.uid) return getCachedMatchHistory(parsed.uid);
+        }
+      } catch {}
+    }
     return [];
   });
 
@@ -87,8 +103,19 @@ export default function HomePage() {
         localStorage.removeItem('chess_user_session');
       }
     });
-    return unsub;
+    return () => unsub();
   }, []);
+
+  // Sync real friends and match history from Firebase when user logs in
+  useEffect(() => {
+    if (user?.uid) {
+      getRealFriends(user.uid).then(setFriends);
+      getRealMatchHistory(user.uid).then(setHistory);
+    } else {
+      setFriends([]);
+      setHistory([]);
+    }
+  }, [user?.uid]);
 
   function showToast(msg: string) {
     setNotification(msg);
@@ -114,6 +141,8 @@ export default function HomePage() {
     localStorage.removeItem('chess_user_session');
     setUser(null);
     setScreen('home');
+    setFriends([]);
+    setHistory([]);
     showToast('Signed out successfully');
   }
 
@@ -125,19 +154,19 @@ export default function HomePage() {
       delta = movesCount < 6 ? -10 : -15;
     }
 
-    // Persist real game to Match History
-    saveMatchRecord({
-      opponent: screen === 'ai' ? 'Adaptive AI' : 'Online Rival',
-      opponentType: screen === 'ai' ? 'ai' : 'player',
-      opponentRating: screen === 'ai' ? 1200 : (user?.rating || 400),
-      result,
-      deltaScore: delta,
-      movesCount,
-      gameType: screen === 'ai' ? 'ai' : 'rapid',
-    });
-    setHistory(getMatchHistory());
-
     if (user?.uid) {
+      // Persist authentic game to Firebase Firestore
+      const saved = await saveRealMatchRecord(user.uid, {
+        opponent: screen === 'ai' ? 'Adaptive AI' : 'Online Rival',
+        opponentType: screen === 'ai' ? 'ai' : 'player',
+        opponentRating: screen === 'ai' ? 1200 : (user?.rating || 400),
+        result,
+        deltaScore: delta,
+        movesCount,
+        gameType: screen === 'ai' ? 'ai' : 'rapid',
+      });
+      setHistory(prev => [saved, ...prev]);
+
       try {
         const { deltaScore } = await updateStats(user.uid, result, movesCount);
         const fresh = await getProfileById(user.uid);
@@ -318,28 +347,55 @@ export default function HomePage() {
               </div>
 
               <div className="dash-horizontal-scroll">
-                {friends.map((friend) => (
-                  <div key={friend.id} className="dash-friend-card">
-                    <div className="dash-friend-avatar-wrap">
-                      <div className="dash-friend-avatar">♟</div>
-                      {friend.status.toLowerCase().includes('online') && (
-                        <div className="dash-online-dot" />
-                      )}
+                {friends.length === 0 ? (
+                  <div
+                    className="dash-friend-card"
+                    onClick={() => setShowFriends(true)}
+                    style={{
+                      cursor: 'pointer',
+                      border: '1px dashed rgba(124, 182, 225, 0.4)',
+                      background: 'rgba(26, 47, 75, 0.35)',
+                      minWidth: '160px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '1rem 0.8rem',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <div style={{ fontSize: '1.6rem', marginBottom: '0.2rem' }}>👥</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                      No Friends Yet
                     </div>
-                    <div className="dash-friend-name">
-                      {friend.username} {friend.country}
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                      Tap to add real players
                     </div>
-                    <div className="dash-friend-sub">
-                      {friend.status}
-                    </div>
-                    <button
-                      className="dash-friend-btn"
-                      onClick={() => handleChallengeFriend(friend)}
-                    >
-                      Challenge
-                    </button>
                   </div>
-                ))}
+                ) : (
+                  friends.map((friend) => (
+                    <div key={friend.id} className="dash-friend-card">
+                      <div className="dash-friend-avatar-wrap">
+                        <div className="dash-friend-avatar">♟</div>
+                        {friend.status.toLowerCase().includes('online') && (
+                          <div className="dash-online-dot" />
+                        )}
+                      </div>
+                      <div className="dash-friend-name">
+                        {friend.username} {friend.country}
+                      </div>
+                      <div className="dash-friend-sub">
+                        {friend.status}
+                      </div>
+                      <button
+                        className="dash-friend-btn"
+                        onClick={() => handleChallengeFriend(friend)}
+                      >
+                        Challenge
+                      </button>
+                    </div>
+                  ))
+                )}
 
                 {/* Find Friends Card */}
                 <div
@@ -381,42 +437,64 @@ export default function HomePage() {
               </div>
 
               <div className="dash-history-list">
-                {history.slice(0, 6).map((match) => (
-                  <div key={match.id} className="dash-history-item">
-                    <div className="dash-history-left">
-                      <div className="dash-history-type-icon">
-                        {match.opponentType === 'ai' ? '🤖' : '⏱️'}
-                      </div>
-                      <div className="dash-history-opp-avatar">
-                        ♟
-                      </div>
-                      <div>
-                        <div className="dash-history-opp-name">
-                          {match.opponent} <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>({match.opponentRating})</span>
-                        </div>
-                        <div className="dash-history-opp-sub">
-                          {match.date} · {match.movesCount} moves
-                        </div>
-                      </div>
+                {history.length === 0 ? (
+                  <div
+                    style={{
+                      padding: '1.5rem 1rem',
+                      textAlign: 'center',
+                      background: 'var(--bg-card)',
+                      borderRadius: '14px',
+                      border: '1px dashed rgba(124, 182, 225, 0.25)',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    <div style={{ fontSize: '1.8rem', marginBottom: '0.35rem' }}>📜</div>
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+                      No matches played yet
                     </div>
-
-                    <div className="dash-history-right">
-                      <div className={`dash-outcome-badge ${match.result}`}>
-                        {match.result === 'win' ? '+' : match.result === 'loss' ? '−' : '='}
-                      </div>
-
-                      {/* The Signature Star Review Button from Image 2 */}
-                      <button
-                        className="dash-review-btn"
-                        onClick={() => setSelectedReview(match)}
-                        title="Review Match Analysis"
-                        aria-label="Review Match"
-                      >
-                        ⭐
-                      </button>
+                    <div>
+                      Play vs AI or Online! Each game automatically saves here with full review.
                     </div>
                   </div>
-                ))}
+                ) : (
+                  history.slice(0, 6).map((match) => (
+                    <div key={match.id} className="dash-history-item">
+                      <div className="dash-history-left">
+                        <div className="dash-history-type-icon">
+                          {match.opponentType === 'ai' ? '🤖' : '⏱️'}
+                        </div>
+                        <div className="dash-history-opp-avatar">
+                          ♟
+                        </div>
+                        <div>
+                          <div className="dash-history-opp-name">
+                            {match.opponent} <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>({match.opponentRating})</span>
+                          </div>
+                          <div className="dash-history-opp-sub">
+                            {match.date} · {match.movesCount} moves
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="dash-history-right">
+                        <div className={`dash-outcome-badge ${match.result}`}>
+                          {match.result === 'win' ? '+' : match.result === 'loss' ? '−' : '='}
+                        </div>
+
+                        {/* The Signature Star Review Button from Image 2 */}
+                        <button
+                          className="dash-review-btn"
+                          onClick={() => setSelectedReview(match)}
+                          title="Review Match Analysis"
+                          aria-label="Review Match"
+                        >
+                          ⭐
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </section>
           </main>
@@ -500,13 +578,20 @@ export default function HomePage() {
 
       {showFriends && (
         <FriendsModal
+          currentUser={user}
           onClose={() => {
             setShowFriends(false);
-            setFriends(getFriends());
+            if (user?.uid) {
+              getRealFriends(user.uid).then(setFriends);
+            }
           }}
           onChallenge={(friend) => {
             setShowFriends(false);
             handleChallengeFriend(friend);
+          }}
+          onRequireAuth={() => {
+            setShowFriends(false);
+            setShowAuth(true);
           }}
         />
       )}
