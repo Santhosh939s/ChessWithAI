@@ -107,11 +107,11 @@ export default function HomePage() {
         setUser(fullUser);
         localStorage.setItem('chess_user_session', JSON.stringify(fullUser));
         if (result === 'win')  showToast(`🏆 Victory! (+${deltaScore} pts) Rank: ${getTier(fresh.wins).name}`);
-        else if (result === 'draw') showToast('🤝 Draw accepted! 0 points deducted on both sides.');
+        else if (result === 'draw') showToast('🤝 Draw accepted! 0 points deducted.');
         else showToast(`Match lost (${deltaScore} pts). Keep practicing!`);
       } catch {}
     }
-    setScreen('home');
+    // Note: Do NOT automatically navigate away. Keep user in game review mode so they can analyze their moves.
   }
 
   const tier = user ? getTier(user.wins) : null;

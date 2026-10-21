@@ -42,6 +42,7 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
 
   // Move replay state (null = showing live board)
   const [viewIndex, setViewIndex] = useState<number | null>(null);
+  const [reviewMode, setReviewMode] = useState(false);
 
   function handleSelectTheme(newTheme: BoardTheme) {
     setTheme(newTheme);
@@ -193,7 +194,9 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
 
   // Notify parent on game over with moves count
   useEffect(() => {
-    if (gameOver) onGameEnd(gameOver, moveHistory.length);
+    if (gameOver) {
+      onGameEnd(gameOver, moveHistory.length);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameOver]);
 
@@ -222,6 +225,25 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
     setStatus('You resigned the match.');
     setGameOver('loss');
   }
+
+  const handlePlayAgain = useCallback(() => {
+    const newChess = new Chess();
+    chessRef.current = newChess;
+    setFen(newChess.fen());
+    setMoveHistory([]);
+    setLastMove(null);
+    setCheckSquare(null);
+    setGameOver(null);
+    setReviewMode(false);
+    setViewIndex(null);
+    setWhiteTime(INITIAL_TIME);
+    setBlackTime(INITIAL_TIME);
+    setThinking(false);
+    setStatus(playerColor === 'w' ? 'Your turn' : 'AI thinking…');
+    if (playerColor === 'b') {
+      setTimeout(() => makeAIMove(), 250);
+    }
+  }, [makeAIMove, playerColor]);
 
   // ── Calculate Board & Last Move to Display (Cached with useMemo for 0ms lag) ─
   const historyCache = useMemo(() => {
@@ -294,8 +316,66 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
           </div>
         </div>
 
-        {/* Replay Banner Warning */}
-        {isReplaying && (
+        {/* Game Finished Review Banner */}
+        {gameOver && reviewMode && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95))',
+            border: '1px solid rgba(124, 182, 225, 0.4)',
+            borderRadius: 12,
+            padding: '0.55rem 0.85rem',
+            margin: '0.2rem 0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontSize: '0.82rem',
+            color: 'var(--text-primary)',
+            width: 'min(560px, calc(100vw - 2rem), calc(100vh - 240px))',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ fontSize: '1.15rem' }}>
+                {gameOver === 'win' ? '🏆' : gameOver === 'loss' ? '😔' : '🤝'}
+              </span>
+              <div>
+                <span style={{ fontWeight: 800, color: gameOver === 'win' ? '#34d399' : gameOver === 'loss' ? '#f87171' : '#fbbf24' }}>
+                  {gameOver === 'win' ? 'Victory' : gameOver === 'loss' ? 'Defeat' : 'Draw'}
+                </span>
+                <span style={{ color: 'var(--text-secondary)', marginLeft: '0.35rem', fontSize: '0.75rem' }}>
+                  {viewIndex !== null ? `(Move ${viewIndex} of ${moveHistory.length})` : '(Final Position)'}
+                </span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '0.35rem' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setReviewMode(false)}
+                style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem' }}
+                title="View Match Summary"
+              >
+                📋 Result
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={handlePlayAgain}
+                style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem' }}
+                title="Play a new game"
+              >
+                🔄 Rematch
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={onBack}
+                style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem' }}
+                title="Return to Home Menu"
+              >
+                🏠 Home
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Live Replay Banner Warning when game is still in progress */}
+        {!gameOver && isReplaying && (
           <div style={{
             background: 'rgba(59, 130, 246, 0.15)',
             border: '1px solid rgba(59, 130, 246, 0.4)',
@@ -307,7 +387,7 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
             alignItems: 'center',
             fontSize: '0.82rem',
             color: '#93c5fd',
-            width: 'min(540px, calc(100vw - 1rem))'
+            width: 'min(560px, calc(100vw - 2rem), calc(100vh - 240px))'
           }}>
             <span>🔍 Past Move {viewIndex} / {moveHistory.length}</span>
             <button
@@ -357,6 +437,15 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
           </button>
           <button
             className="bottom-action-btn"
+            onClick={() => stepToMove(0)}
+            disabled={moveHistory.length === 0 || activeMoveIndex === 0}
+            title="Start of Game"
+          >
+            <span className="bottom-btn-icon">⏮️</span>
+            <span>Start</span>
+          </button>
+          <button
+            className="bottom-action-btn"
             onClick={() => stepToMove(activeMoveIndex - 1)}
             disabled={moveHistory.length === 0 || activeMoveIndex === 0}
             title="Step Back"
@@ -373,36 +462,93 @@ export default function AIGame({ user, onGameEnd, onBack }: Props) {
             <span className="bottom-btn-icon">▶</span>
             <span>Forward</span>
           </button>
-          {viewIndex !== null && (
-            <button
-              className="bottom-action-btn"
-              onClick={() => setViewIndex(null)}
-              style={{ background: 'rgba(59, 130, 246, 0.25)', borderColor: 'rgba(59, 130, 246, 0.5)' }}
-              title="Live Game"
-            >
-              <span className="bottom-btn-icon">⏭️</span>
-              <span>Live</span>
-            </button>
-          )}
+          <button
+            className="bottom-action-btn"
+            onClick={() => setViewIndex(null)}
+            disabled={viewIndex === null}
+            title="Final Move"
+          >
+            <span className="bottom-btn-icon">⏭️</span>
+            <span>End</span>
+          </button>
         </div>
       </div>
 
-      {/* Clean Game Over Modal Popup */}
-      {gameOver && (
-        <div className="modal-overlay">
-          <div className="modal-card" style={{ maxWidth: 380, textAlign: 'center' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>
+      {/* Clean Interactive Game Over Modal Popup */}
+      {gameOver && !reviewMode && (
+        <div className="modal-overlay" onClick={() => setReviewMode(true)}>
+          <div className="modal-card" style={{ maxWidth: 400, textAlign: 'center', padding: '1.75rem' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: '3rem', marginBottom: '0.4rem' }}>
               {gameOver === 'win' ? '🏆' : gameOver === 'loss' ? '😔' : '🤝'}
             </div>
-            <h2 className="modal-title" style={{ fontSize: '1.4rem' }}>
-              {gameOver === 'win' ? 'Victory!' : gameOver === 'loss' ? 'Game Over' : 'Draw Match'}
+            <h2 className="modal-title" style={{ fontSize: '1.5rem', marginBottom: '0.35rem' }}>
+              {gameOver === 'win' ? 'Victory!' : gameOver === 'loss' ? 'Defeat' : 'Draw Match'}
             </h2>
-            <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: '0.75rem 0 1.25rem' }}>
+            <div style={{
+              display: 'inline-block',
+              padding: '0.35rem 0.85rem',
+              borderRadius: '999px',
+              background: gameOver === 'win' ? 'rgba(16, 185, 129, 0.15)' : gameOver === 'loss' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+              color: gameOver === 'win' ? '#34d399' : gameOver === 'loss' ? '#f87171' : '#fbbf24',
+              fontWeight: 700,
+              fontSize: '0.85rem',
+              marginBottom: '1rem',
+              border: `1px solid ${gameOver === 'win' ? 'rgba(16, 185, 129, 0.3)' : gameOver === 'loss' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
+            }}>
               {status}
-            </p>
-            <button className="btn btn-primary" style={{ width: '100%' }} onClick={onBack}>
-              Return to Menu
-            </button>
+            </div>
+
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '12px',
+              padding: '0.75rem 1rem',
+              marginBottom: '1.25rem',
+              display: 'flex',
+              justifyContent: 'space-around',
+              fontSize: '0.82rem',
+              color: 'var(--text-secondary)'
+            }}>
+              <div>
+                <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '1.1rem' }}>{moveHistory.length}</div>
+                <div>Moves Played</div>
+              </div>
+              <div style={{ borderLeft: '1px solid rgba(255,255,255,0.08)' }} />
+              <div>
+                <div style={{ fontWeight: 800, color: tier.color, fontSize: '1.1rem' }}>{tier.name}</div>
+                <div>AI Level {aiDepth}</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+              <button
+                className="btn btn-primary"
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                onClick={() => setReviewMode(true)}
+              >
+                <span>🔍</span>
+                <span>Review Game & Moves</span>
+              </button>
+              
+              <div style={{ display: 'flex', gap: '0.65rem' }}>
+                <button
+                  className="btn btn-secondary"
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
+                  onClick={handlePlayAgain}
+                >
+                  <span>🔄</span>
+                  <span>Play Again</span>
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
+                  onClick={onBack}
+                >
+                  <span>🏠</span>
+                  <span>Home</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
