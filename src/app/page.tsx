@@ -4,13 +4,23 @@ import { useState, useEffect } from 'react';
 import AuthModal from '@/components/AuthModal';
 import ProfileModal from '@/components/ProfileModal';
 import AIGame from '@/components/AIGame';
-import OnlineGame from '@/components/OnlineGame';
+import OnlineGame, { type ChallengeSession } from '@/components/OnlineGame';
 import Leaderboard from '@/components/Leaderboard';
 import FriendsModal from '@/components/FriendsModal';
 import PuzzleModal from '@/components/PuzzleModal';
 import LearnModal from '@/components/LearnModal';
 import GameModeModal from '@/components/GameModeModal';
 import MatchReviewModal from '@/components/MatchReviewModal';
+import IncomingChallengeModal from '@/components/IncomingChallengeModal';
+import OutgoingChallengeModal from '@/components/OutgoingChallengeModal';
+import {
+  sendFriendChallenge,
+  listenToIncomingChallenges,
+  respondToChallenge,
+  clearChallenge,
+  type FriendChallenge,
+} from '@/lib/challenges';
+import { updatePresenceHeartbeat } from '@/lib/presence';
 import { getRealFriends, getCachedFriends, type Friend } from '@/lib/friends';
 import { getRealMatchHistory, getCachedMatchHistory, saveRealMatchRecord, type MatchRecord } from '@/lib/gameHistory';
 import {
@@ -43,6 +53,11 @@ export default function HomePage() {
   const [showLearn, setShowLearn] = useState(false);
   const [showGameMode, setShowGameMode] = useState(false);
   const [selectedReview, setSelectedReview] = useState<MatchRecord | null>(null);
+
+  // Real-time friend challenges state
+  const [incomingChallenge, setIncomingChallenge] = useState<FriendChallenge | null>(null);
+  const [outgoingChallenge, setOutgoingChallenge] = useState<{ friend: Friend; challengeId: string } | null>(null);
+  const [activeChallengeSession, setActiveChallengeSession] = useState<ChallengeSession | null>(null);
 
   // App state
   const [pendingMode, setPendingMode] = useState<Screen | null>(null);
@@ -117,6 +132,27 @@ export default function HomePage() {
     }
   }, [user?.uid]);
 
+  // Listen for incoming challenges and maintain online presence
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    // 1. Maintain presence heartbeat every 25 seconds
+    updatePresenceHeartbeat(user.uid);
+    const presenceTimer = setInterval(() => {
+      updatePresenceHeartbeat(user.uid);
+    }, 25000);
+
+    // 2. Real-time listener for incoming friend challenges
+    const unsubChallenge = listenToIncomingChallenges(user.uid, (ch) => {
+      setIncomingChallenge(ch);
+    });
+
+    return () => {
+      clearInterval(presenceTimer);
+      unsubChallenge();
+    };
+  }, [user?.uid]);
+
   function showToast(msg: string) {
     setNotification(msg);
     setTimeout(() => setNotification(null), 3500);
@@ -133,6 +169,7 @@ export default function HomePage() {
 
   function handlePlayMode(mode: Screen) {
     if (!user) { setPendingMode(mode); setShowAuth(true); return; }
+    setActiveChallengeSession(null);
     setScreen(mode);
   }
 
@@ -143,6 +180,9 @@ export default function HomePage() {
     setScreen('home');
     setFriends([]);
     setHistory([]);
+    setActiveChallengeSession(null);
+    setIncomingChallenge(null);
+    setOutgoingChallenge(null);
     showToast('Signed out successfully');
   }
 
@@ -156,10 +196,14 @@ export default function HomePage() {
 
     if (user?.uid) {
       // Persist authentic game to Firebase Firestore
+      const oppName = activeChallengeSession?.opponentName || (screen === 'ai' ? 'Adaptive AI' : 'Online Rival');
+      const oppRating = activeChallengeSession?.opponentRating || (screen === 'ai' ? 1200 : (user?.rating || 400));
+      const oppType = screen === 'ai' ? 'ai' : 'player';
+
       const saved = await saveRealMatchRecord(user.uid, {
-        opponent: screen === 'ai' ? 'Adaptive AI' : 'Online Rival',
-        opponentType: screen === 'ai' ? 'ai' : 'player',
-        opponentRating: screen === 'ai' ? 1200 : (user?.rating || 400),
+        opponent: oppName,
+        opponentType: oppType,
+        opponentRating: oppRating,
         result,
         deltaScore: delta,
         movesCount,
@@ -180,9 +224,68 @@ export default function HomePage() {
     }
   }
 
-  function handleChallengeFriend(friend: Friend) {
-    showToast(`⚔️ Challenging ${friend.username}… Launching arena!`);
-    handlePlayMode('online');
+  // ── Real-Time Friend Challenge Flow (Zero Room Codes) ──────────────────────
+  async function handleChallengeFriend(friend: Friend) {
+    if (!user?.uid) {
+      setShowAuth(true);
+      return;
+    }
+
+    try {
+      showToast(`⚔️ Sending challenge to ${friend.username}…`);
+      const peerId = `chess-ch-${user.uid}-${Date.now().toString(36)}`;
+      const challengeId = await sendFriendChallenge(user, friend, peerId);
+      setOutgoingChallenge({
+        friend,
+        challengeId,
+      });
+    } catch (err) {
+      console.warn('Challenge sending failed:', err);
+      showToast(`Could not send challenge to ${friend.username}. Try again.`);
+    }
+  }
+
+  function handleOutgoingChallengeAccepted(challenge: FriendChallenge) {
+    setOutgoingChallenge(null);
+    showToast(`⚔️ ${challenge.targetName} accepted! Launching match…`);
+    setActiveChallengeSession({
+      role: 'host',
+      challengerPeerId: challenge.challengerPeerId,
+      opponentName: challenge.targetName,
+    });
+    setScreen('online');
+  }
+
+  function handleOutgoingChallengeDeclined() {
+    const friendName = outgoingChallenge?.friend?.username || 'Your friend';
+    setOutgoingChallenge(null);
+    showToast(`⚔️ ${friendName} is away or declined the match.`);
+  }
+
+  async function handleAcceptIncomingChallenge(challenge: FriendChallenge) {
+    try {
+      await respondToChallenge(challenge.id, true);
+      setIncomingChallenge(null);
+      showToast(`⚔️ Accepted challenge from ${challenge.challengerName}! Launching match…`);
+      setActiveChallengeSession({
+        role: 'guest',
+        challengerPeerId: challenge.challengerPeerId,
+        opponentName: challenge.challengerName,
+        opponentRating: challenge.challengerRating,
+      });
+      setScreen('online');
+    } catch (err) {
+      console.warn('Error accepting challenge:', err);
+      showToast('Failed to accept challenge. Try again.');
+    }
+  }
+
+  async function handleDeclineIncomingChallenge(challenge: FriendChallenge) {
+    try {
+      await respondToChallenge(challenge.id, false);
+      clearChallenge(challenge.id).catch(() => {});
+    } catch {}
+    setIncomingChallenge(null);
   }
 
   function handleNavClick(tab: NavTab) {
@@ -215,7 +318,15 @@ export default function HomePage() {
       )}
 
       {screen === 'online' && user && (
-        <OnlineGame user={user} onGameEnd={handleGameEnd} onBack={() => setScreen('home')} />
+        <OnlineGame
+          user={user}
+          onGameEnd={handleGameEnd}
+          onBack={() => {
+            setActiveChallengeSession(null);
+            setScreen('home');
+          }}
+          challengeSession={activeChallengeSession}
+        />
       )}
 
       {/* Main Home Screen Dashboard (Chess.com Mobile Native Layout) */}
@@ -630,6 +741,25 @@ export default function HomePage() {
             setSelectedReview(null);
             handlePlayMode(selectedReview.opponentType === 'ai' ? 'ai' : 'online');
           }}
+        />
+      )}
+
+      {/* Direct Real-Time Friend Challenge Modals (Zero Room Codes) */}
+      {incomingChallenge && (
+        <IncomingChallengeModal
+          challenge={incomingChallenge}
+          onAccept={() => handleAcceptIncomingChallenge(incomingChallenge)}
+          onDecline={() => handleDeclineIncomingChallenge(incomingChallenge)}
+        />
+      )}
+
+      {outgoingChallenge && (
+        <OutgoingChallengeModal
+          friend={outgoingChallenge.friend}
+          challengeId={outgoingChallenge.challengeId}
+          onAccepted={handleOutgoingChallengeAccepted}
+          onDeclined={handleOutgoingChallengeDeclined}
+          onCancel={() => setOutgoingChallenge(null)}
         />
       )}
     </div>

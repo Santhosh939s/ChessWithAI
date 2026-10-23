@@ -81,6 +81,25 @@ export async function getRealFriends(myUid: string): Promise<Friend[]> {
   }
 
   const friends = Array.from(friendsMap.values());
+
+  // Dynamically check online status based on recent heartbeat
+  try {
+    await Promise.all(
+      friends.slice(0, 15).map(async (f) => {
+        try {
+          const uSnap = await getDoc(doc(db, 'users', f.uid));
+          if (uSnap.exists()) {
+            const uData = uSnap.data();
+            const lastActive = uData.lastActive || 0;
+            const isOnline = Date.now() - lastActive < 75000;
+            f.status = isOnline ? 'Online' : 'Offline';
+            if (uData.rating !== undefined) f.rating = uData.rating;
+          }
+        } catch {}
+      })
+    );
+  } catch {}
+
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem(`chess_friends_${myUid}`, JSON.stringify(friends));

@@ -8,10 +8,18 @@ import GameOptionsMenu from '@/components/GameOptionsMenu';
 import { enterMatchmakingQueue, leaveMatchmakingQueue, getTier } from '@/lib/api';
 import { stripEnPassantFen, clearEnPassant, createCleanChess } from '@/lib/chessRules';
 
+export interface ChallengeSession {
+  role: 'host' | 'guest';
+  challengerPeerId: string;
+  opponentName: string;
+  opponentRating?: number;
+}
+
 interface Props {
   user: any;
   onGameEnd: (result: 'win' | 'loss' | 'draw', movesCount?: number) => void;
   onBack: () => void;
+  challengeSession?: ChallengeSession | null;
 }
 
 type Phase = 'menu' | 'matching' | 'hosting' | 'joining' | 'playing';
@@ -50,7 +58,7 @@ function generateRoomCode(): string {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
-export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
+export default function OnlineGame({ user, onGameEnd, onBack, challengeSession }: Props) {
   const [phase, setPhase] = useState<Phase>('menu');
   const [roomCode, setRoomCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
@@ -158,6 +166,72 @@ export default function OnlineGame({ user, onGameEnd, onBack }: Props) {
     const { Peer } = await import('peerjs');
     return Peer;
   }
+
+  // ── Auto-Launch Direct Friend Challenge (Zero Room Codes) ──────────────────
+  useEffect(() => {
+    if (!challengeSession) return;
+    const session = challengeSession;
+
+    let active = true;
+    async function startDirectChallenge() {
+      setError('');
+      setPhase('matching');
+      setOpponentName(session.opponentName);
+      setMatchStatusText(`Connecting with ${session.opponentName}…`);
+
+      try {
+        const Peer = await loadPeer();
+
+        if (session.role === 'host') {
+          // Host opens peer with challengerPeerId and waits for guest
+          const peer = new Peer(session.challengerPeerId, PEER_OPTIONS);
+          peerRef.current = peer;
+
+          peer.on('open', () => {
+            if (!active) return;
+            setMatchStatusText(`Connecting with ${session.opponentName}…`);
+          });
+
+          peer.on('connection', (conn: any) => {
+            if (!active) return;
+            connRef.current = conn;
+            setupConnHandlers(conn, 'host');
+          });
+
+          peer.on('error', (err: any) => {
+            console.warn('Host peer challenge error:', err);
+            if (active) setError('Connection interrupted. Please try challenging again.');
+          });
+        } else {
+          // Guest connects to host
+          const peer = new Peer(PEER_OPTIONS);
+          peerRef.current = peer;
+
+          peer.on('open', () => {
+            if (!active) return;
+            setMatchStatusText(`Connecting to ${session.opponentName}…`);
+            const conn = peer.connect(session.challengerPeerId, { reliable: true });
+            connRef.current = conn;
+            setupConnHandlers(conn, 'guest');
+          });
+
+          peer.on('error', (err: any) => {
+            console.warn('Guest peer challenge error:', err);
+            if (active) setError('Could not connect to friend. Please try again.');
+          });
+        }
+      } catch (e) {
+        console.warn('Direct challenge start error:', e);
+        if (active) setError('Failed to initialize connection.');
+      }
+    }
+
+    startDirectChallenge();
+
+    return () => {
+      active = false;
+    };
+  }, [challengeSession]);
 
   // ── 1. Quick Automated Matchmaking with 15s Buffer ────────────────────────
   async function startQuickMatch() {
