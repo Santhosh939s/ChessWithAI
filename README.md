@@ -45,18 +45,30 @@ npm run dev
 3. Add Firebase env vars in Vercel → Settings → Environment Variables
 4. Deploy!
 
-## Firestore Rules (set in Firebase Console)
-```
+## Firestore Security Rules (Set in Firebase Console → Firestore Database → Rules)
+```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // 1. User profiles and all nested subcollections (friends, matches, etc.)
     match /users/{uid} {
       allow read: if true;
-      allow write: if request.auth.uid == uid;
+      allow write: if request.auth != null && request.auth.uid == uid;
     }
+    match /users/{uid}/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // 2. Registered usernames mapping for search and uniqueness
     match /usernames/{username} {
       allow read: if true;
-      allow create: if request.auth != null;
+      allow create, update: if request.auth != null;
+    }
+
+    // 3. Online matchmaking queue for real-time multiplayer
+    match /matchmaking_queue/{docId} {
+      allow read, write: if true;
     }
   }
 }

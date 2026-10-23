@@ -1,4 +1,4 @@
-import { doc, setDoc, collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { getFirebaseDb } from './firebase';
 
 export interface MatchRecord {
@@ -17,10 +17,35 @@ export interface MatchRecord {
 
 /**
  * Loads real match history from Firebase Firestore for the authenticated user.
+ * Merges root user document recent matches, subcollection records, and local cache.
  */
 export async function getRealMatchHistory(uid: string): Promise<MatchRecord[]> {
   if (!uid) return [];
   const db = getFirebaseDb();
+  const matchMap = new Map<string, MatchRecord>();
+
+  // 1. Local cache baseline
+  const cached = getCachedMatchHistory(uid);
+  for (const m of cached) {
+    if (m?.id) matchMap.set(m.id, m);
+  }
+
+  // 2. Load from root user document (users/{uid}.recentMatches)
+  try {
+    const userDoc = await getDoc(doc(db, 'users', uid));
+    if (userDoc.exists()) {
+      const data = userDoc.data();
+      if (Array.isArray(data.recentMatches)) {
+        for (const m of data.recentMatches) {
+          if (m?.id) matchMap.set(m.id, m);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Recent matches root document read warning:', e);
+  }
+
+  // 3. Load from subcollection users/{uid}/matches (if rules permit)
   try {
     const q = query(
       collection(db, 'users', uid, 'matches'),
@@ -28,18 +53,21 @@ export async function getRealMatchHistory(uid: string): Promise<MatchRecord[]> {
       limit(40)
     );
     const snap = await getDocs(q);
-    const records: MatchRecord[] = snap.docs.map(d => ({
-      id: d.id,
-      ...(d.data() as any),
-    }));
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(`chess_matches_${uid}`, JSON.stringify(records));
+    for (const d of snap.docs) {
+      const m = { id: d.id, ...(d.data() as any) } as MatchRecord;
+      if (m?.id) matchMap.set(m.id, m);
     }
-    return records;
   } catch (e) {
-    console.warn('Failed to load match history from Firebase:', e);
-    return getCachedMatchHistory(uid);
+    console.warn('Matches subcollection read warning:', e);
   }
+
+  const sorted = Array.from(matchMap.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(`chess_matches_${uid}`, JSON.stringify(sorted));
+    } catch {}
+  }
+  return sorted;
 }
 
 /**
@@ -78,21 +106,34 @@ export async function saveRealMatchRecord(
     date: dateFormatted,
   };
 
-  // 1. Write real match document to Firestore
-  if (uid) {
-    try {
-      const db = getFirebaseDb();
-      await setDoc(doc(db, 'users', uid, 'matches', matchId), fullRecord);
-    } catch (e) {
-      console.warn('Failed to save match to Firebase:', e);
-    }
-  }
-
-  // 2. Update local cache
+  // 1. Immediately update local cache
   if (typeof window !== 'undefined' && uid) {
     const cached = getCachedMatchHistory(uid);
-    const updated = [fullRecord, ...cached].slice(0, 50);
-    localStorage.setItem(`chess_matches_${uid}`, JSON.stringify(updated));
+    const updated = [fullRecord, ...cached.filter(m => m.id !== matchId)].slice(0, 50);
+    try {
+      localStorage.setItem(`chess_matches_${uid}`, JSON.stringify(updated));
+    } catch {}
+  }
+
+  if (uid) {
+    const db = getFirebaseDb();
+    const current = getCachedMatchHistory(uid);
+
+    // 2. Persist to root user document: users/{uid}.recentMatches
+    try {
+      await setDoc(doc(db, 'users', uid), {
+        recentMatches: current.slice(0, 30),
+      }, { merge: true });
+    } catch (e) {
+      console.warn('Failed to save match to user document:', e);
+    }
+
+    // 3. Also try subcollection: users/{uid}/matches/{matchId}
+    try {
+      await setDoc(doc(db, 'users', uid, 'matches', matchId), fullRecord);
+    } catch (e) {
+      console.warn('Failed to save match to subcollection:', e);
+    }
   }
 
   return fullRecord;

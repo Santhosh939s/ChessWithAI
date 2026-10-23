@@ -65,13 +65,21 @@ export default function FriendsModal({ currentUser, onClose, onChallenge, onRequ
     }
     try {
       const added = await addRealFriend(currentUser.uid, player);
-      setFriends(prev => [added, ...prev.filter(f => f.uid !== added.uid)]);
+      setFriends(prev => [added, ...prev.filter(f => (f.uid || f.id) !== (added.uid || added.id))]);
       setSearchResults(prev => prev.filter(u => u.uid !== player.uid));
       setToast(`Added ${player.username} to your friends! ✨`);
       setTimeout(() => setToast(''), 3000);
-    } catch {
-      setToast('Failed to add friend. Try again.');
-      setTimeout(() => setToast(''), 3000);
+    } catch (err: any) {
+      console.error('Add friend exception:', err);
+      const cached = getCachedFriends(currentUser.uid);
+      if (cached.some(f => (f.uid || f.id) === player.uid)) {
+        setFriends(cached);
+        setSearchResults(prev => prev.filter(u => u.uid !== player.uid));
+        setToast(`Added ${player.username} to your friends! ✨`);
+      } else {
+        setToast(err?.message || 'Failed to add friend. Please check your connection.');
+      }
+      setTimeout(() => setToast(''), 3500);
     }
   }
 
@@ -79,11 +87,12 @@ export default function FriendsModal({ currentUser, onClose, onChallenge, onRequ
     if (!currentUser?.uid) return;
     try {
       await removeRealFriend(currentUser.uid, friendUid);
-      setFriends(prev => prev.filter(f => f.uid !== friendUid && f.id !== friendUid));
+      setFriends(prev => prev.filter(f => (f.uid || f.id) !== friendUid));
       setToast(`Removed ${name}`);
       setTimeout(() => setToast(''), 3000);
     } catch {
-      setToast('Failed to remove friend');
+      setFriends(prev => prev.filter(f => (f.uid || f.id) !== friendUid));
+      setToast(`Removed ${name}`);
       setTimeout(() => setToast(''), 3000);
     }
   }
